@@ -1,0 +1,6 @@
+@Dexcom_HostAddress = http://localhost:5122
+
+GET {{Dexcom_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

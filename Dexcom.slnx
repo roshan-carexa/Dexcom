@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yaml" />
+  </Folder>
+  <Project Path="Dexcom/Dexcom.csproj" />
+  <Project Path="Tests/Tests.csproj" />
+</Solution>
