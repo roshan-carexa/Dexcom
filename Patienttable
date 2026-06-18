@@ -34,6 +34,7 @@ import { SegmentedSlideToggle } from '../../../clinics/componenet/Device managem
 import DraftPatientTable from '../../../clinics/componenet/PatientManagement/DraftPatientTable';
 import type { EnumItem } from '../../services/EnumAPI';
 import theme from '../../../../Theme';
+import { ClinicThemeProvider } from '../../../clinics/componenet/ClinicPatientOnboard/ClinicThemeProvider';
 
 /* ===================== Types & Utils ===================== */
 
@@ -1340,9 +1341,33 @@ export default function PatientTable() {
     );
   }
 
+  const headerCellSx = {
+    textAlign: 'center',
+    verticalAlign: 'top',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: 0.3,
+    color: 'text.secondary',
+    py: 1.25
+  };
+  const headerLinkSx = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 'inherit',
+    fontWeight: 'inherit',
+    color: 'inherit'
+  };
+
+  const bodyCellSx = {
+    textAlign: 'center',
+    verticalAlign: 'middle',
+    py: 1,
+  };
+
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ClinicThemeProvider>
 
       {noPermission && (
         <Alert
@@ -1741,7 +1766,7 @@ export default function PatientTable() {
             )}
             <Box
               sx={{
-                display: { xs: 'none', sm: 'grid', display: 'block' },
+                display: { xs: 'none', sm: 'grid' },
                 gridTemplateColumns:
                   showAlertsColumn && showAlertsLegend
                     ? { xs: '1fr', md: 'minmax(0, 1fr) 260px' }
@@ -1754,34 +1779,46 @@ export default function PatientTable() {
                 <Paper
                   variant="outlined"
                   sx={{
-                    overflow: 'hidden',
+                    overflow: 'auto',          // 🔥 key fix (allow horizontal scroll)
                     borderRadius: 'md',
-                    '--TableCell-paddingY': '4px',
-                    '--TableCell-paddingX': '8px',
+                    width: '100%',
                   }}
                 >
                   <Table
                     stickyHeader
                     sx={{
+                      minWidth: 900,
+                      width: '100%',
+                      borderCollapse: 'separate',
+                      borderSpacing: 0, // 👈 horizontal gap between columns
+
                       '& .MuiTableCell-root': {
-                        padding: '4px 4px',
+                        py: 0.75,
+                        px: 1.5,   // 👈 single global spacing rule
+                        whiteSpace: 'nowrap',
+                        verticalAlign: 'middle',
                       },
                     }}
                   >
                     <TableHead>
                       <TableRow>
                         {showMrnColumn && (
-                          <TableCell sx={{ textAlign: 'left' }}>
+                          <TableCell
+                            sx={{
+                              ...headerCellSx,
+                              minWidth: { xs: 80, sm: 120 },
+                              textAlign: 'left',
+                            }}
+                          >
                             <Link
-                              underline="none"
                               component="button"
+                              underline="none"
                               sx={{
+                                ...headerLinkSx,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                fontSize: '15px',
-                                fontWeight: 600,
-                                color: 'text.primary',
-                                gap: 0.25,
+                                gap: 0.5,
+                                maxWidth: '100%',
                               }}
                               onClick={() => {
                                 const isAsc = orderBy === 'mrn' && order === 'asc';
@@ -1793,11 +1830,12 @@ export default function PatientTable() {
                               MRN
                               <ArrowDropDownIcon
                                 sx={{
+                                  transition: '0.2s',
                                   transform:
                                     orderBy === 'mrn' && order === 'asc'
                                       ? 'rotate(180deg)'
                                       : 'rotate(0deg)',
-                                  transition: '0.2s',
+                                  flexShrink: 0,
                                 }}
                               />
                             </Link>
@@ -1805,32 +1843,41 @@ export default function PatientTable() {
                         )}
 
                         {showNameColumn && (
-                          <TableCell>
+                          <TableCell
+                            sx={{
+                              minWidth: { xs: 120, sm: 180 },
+                              textAlign: 'left',
+                            }}
+                          >
                             <Link
-                              sx={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                width: '100%',
-                                fontSize: '15px',
-                                fontWeight: 600,
-                                color: 'text.primary',
-                              }}
-                              underline="none"
                               component="button"
+                              underline="none"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                fontWeight: 600,
+                                maxWidth: '100%',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
                               onClick={() => {
                                 const isAsc = orderBy === 'name' && order === 'asc';
                                 setOrder(isAsc ? 'desc' : 'asc');
                                 setOrderBy('name');
                                 setServerPageIndex(1);
                               }}
-
                             >
                               Name
                               <ArrowDropDownIcon
                                 sx={{
-                                  transform: orderBy === 'name' && order === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transform:
+                                    orderBy === 'name' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
                                   transition: '0.2s',
+                                  flexShrink: 0,
                                 }}
                               />
                             </Link>
@@ -1838,49 +1885,54 @@ export default function PatientTable() {
                         )}
 
                         {showContactInfoColumn && (
-                          <TableCell sx={{
-                            fontSize: '15px',
-                            fontWeight: 600,
-                            color: 'text.primary',
-                          }}>Contact Information</TableCell>
+                          <TableCell
+                            sx={{
+                              ...headerCellSx,
+                              display: { xs: 'none', md: 'table-cell' }, // hide on small screens
+                            }}
+                          >
+                            Contact Information
+                          </TableCell>
                         )}
 
                         {showAlertsColumn && (
-                          <TableCell sx={{
-                            fontSize: '15px',
-                            fontWeight: 600,
-                            color: 'text.primary',
-                          }}  >
-                            {showAlertsColumn && viewMode == 'ONBOARDED' && (
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <TableCell
+                            sx={{
+                              ...headerCellSx,
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
+                            {viewMode === 'ONBOARDED' && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 Alerts
-                                <Tooltip title={showAlertsLegend ? "Hide alert guide" : "Show alert guide"} >
-                                  <IconButton
-                                    onClick={() => setShowAlertsLegend((prev) => !prev)}
-                                  >
+                                <Tooltip title={showAlertsLegend ? "Hide alert guide" : "Show alert guide"}>
+                                  <IconButton onClick={() => setShowAlertsLegend((p) => !p)}>
                                     <Info size={15} />
                                   </IconButton>
                                 </Tooltip>
                               </Box>
                             )}
-
                           </TableCell>
                         )}
 
-                        {/* {showAcuityColumn && (
-                          <TableCell>
+                        {showAcuityColumn && (
+                          <TableCell
+                            sx={{
+                              minWidth: { xs: 80, sm: 120 },
+                              textAlign: 'center',
+                            }}
+                          >
                             <Link
-                              sx={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                width: '100%',
-                                fontSize: '15px',
-                                fontWeight: 600,
-                                color: 'text.primary',
-                              }}
-                              underline="none"
                               component="button"
+                              underline="none"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 0.5,
+                                width: '100%',
+                                fontWeight: 600,
+                              }}
                               onClick={() => {
                                 const isAsc = orderBy === 'acuity' && order === 'asc';
                                 setOrder(isAsc ? 'desc' : 'asc');
@@ -1891,41 +1943,52 @@ export default function PatientTable() {
                               Acuity
                               <ArrowDropDownIcon
                                 sx={{
-                                  transform: orderBy === 'acuity' && order === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transform:
+                                    orderBy === 'acuity' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
                                   transition: '0.2s',
+                                  flexShrink: 0,
                                 }}
                               />
                             </Link>
                           </TableCell>
-                        )} */}
+                        )}
 
                         {showEnrolledProgramColumn && (
-                          <TableCell sx={{
-                            fontSize: '15px',
-                            fontWeight: 600,
-                            color: 'text.primary',
-                          }}>
+                          <TableCell
+                            sx={{
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
                             Care Program
                           </TableCell>
                         )}
 
                         {showStatusColumn && (
-                          <TableCell>
+                          <TableCell
+                            sx={{
+                              minWidth: { xs: 80, sm: 120 },
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             <Link
-                              underline="none"
                               component="button"
+                              underline="none"
                               onClick={() => {
                                 const isAsc = orderBy === 'status' && order === 'asc';
                                 setOrder(isAsc ? 'desc' : 'asc');
                                 setOrderBy('status');
                                 setServerPageIndex(1);
                               }}
-
                             >
                               Status
                               <ArrowDropDownIcon
                                 sx={{
-                                  transform: orderBy === 'status' && order === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transform:
+                                    orderBy === 'status' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
                                   transition: '0.2s',
                                 }}
                               />
@@ -1934,11 +1997,17 @@ export default function PatientTable() {
                         )}
 
                         {showActionColumn && (
-                          <TableCell>Action</TableCell>
+                          <TableCell
+                            sx={{
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
+                            Action
+                          </TableCell>
                         )}
+
                       </TableRow>
                     </TableHead>
-
                     <TableBody>
                       {picklistLoading || permissionsLoading || loading ? (
                         Array.from({ length: rowsPerPage }).map((_, i) => <SkeletonRow key={i} />)
@@ -1946,32 +2015,26 @@ export default function PatientTable() {
                         <TableRow>
                           <TableCell colSpan={visibleColumnCount || 1}>
                             <Box sx={{ textAlign: 'center', py: 4, color: 'text.tertiary' }}>
-                              <Typography variant='body1' fontWeight="lg">
-                                No patients found
-                              </Typography>
+                              <Typography variant='body1' fontWeight="lg">No patients found</Typography>
                             </Box>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        patients.map((row) => (
+                        patients.map((row, idx) => (
                           <TableRow
                             key={row.patientId}
                             onClick={(e) => handlePatientAction(e, row)}
-                            style={{ cursor: 'pointer' }}
+                            sx={{
+                              ...bodyCellSx,
+                              minWidth: { xs: 80, sm: 120 },
+                            }}
                           >
                             {showMrnColumn && (
-                              <TableCell>
+                              <TableCell sx={bodyCellSx}>
                                 <Typography
-                                  fontSize={15}
+                                  fontSize={14}
                                   variant='body2'
-                                  sx={{
-                                    ml: 1,
-                                    whiteSpace: 'normal',
-                                    overflowWrap: 'anywhere',
-                                    wordBreak: 'break-word',
-                                    lineHeight: 1.3,
-                                    // textAlign:'center'
-                                  }}
+                                  sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.3 }}
                                 >
                                   {row.mrn}
                                 </Typography>
@@ -1980,7 +2043,14 @@ export default function PatientTable() {
 
                             {showNameColumn && (
                               <TableCell>
-                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    gap: 1,
+                                    alignItems: 'center',
+                                    width: '100%',
+                                  }}
+                                >
                                   <Avatar
                                     src={row.photo?.dataUrl || undefined}
                                     alt={row.name}
@@ -1992,22 +2062,14 @@ export default function PatientTable() {
                                         referrerPolicy: 'no-referrer',
                                       },
                                     }}
-                                    sx={{
-                                      width: 32,
-                                      height: 32,
-                                      fontSize: 14,
-                                      bgcolor: 'rgb(78, 172, 255)',
-                                      color: '#fff',
-                                    }}
+                                    sx={{ width: 32, height: 32, fontSize: 14, bgcolor: 'rgb(78, 172, 255)', color: '#fff' }}
                                   >
                                     {getInitials(row.name) || <Person2Outlined />}
                                   </Avatar>
-
                                   <Box>
-                                    <Typography fontWeight="bold" fontSize={15} variant='body2'>{row.name}</Typography>
-                                    <Typography fontSize={14} variant="body1">
-                                      {row.age}Y, {row.gender.charAt(0).toUpperCase()}
-                                      {row.gender.slice(1)}
+                                    <Typography fontWeight="bold" fontSize={14} variant='body2'>{row.name}</Typography>
+                                    <Typography fontSize={13} variant="body1" color="text.secondary">
+                                      {row.age}Y, {row.gender.charAt(0).toUpperCase()}{row.gender.slice(1)}
                                     </Typography>
                                   </Box>
                                 </Box>
@@ -2015,22 +2077,18 @@ export default function PatientTable() {
                             )}
 
                             {showContactInfoColumn && (
-                              <TableCell>
+                              <TableCell sx={bodyCellSx}>
                                 {!row.contactInfo.phone && !row.contactInfo.email ? (
-                                  <Typography fontSize={14} variant="body1">No Contact Info Available</Typography>
+                                  <Typography fontSize={13} variant="body1" color="text.secondary">No contact info</Typography>
                                 ) : (
                                   <>
                                     {row.contactInfo.email && (
-                                      <Typography
-                                        variant="body2"
-                                        fontSize={14}
-                                        sx={{ overflowWrap: 'anywhere', whiteSpace: 'normal' }}
-                                      >
+                                      <Typography variant="body2" fontSize={13} sx={{ overflowWrap: 'anywhere' }}>
                                         {row.contactInfo.email}
                                       </Typography>
                                     )}
                                     {row.contactInfo.phone && (
-                                      <Typography fontSize={14} variant="body2">{formatPhone(row.contactInfo.phone)}</Typography>
+                                      <Typography fontSize={13} variant="body2">{formatPhone(row.contactInfo.phone)}</Typography>
                                     )}
                                   </>
                                 )}
@@ -2038,20 +2096,15 @@ export default function PatientTable() {
                             )}
 
                             {showAlertsColumn && (
-                              <TableCell>
+                              <TableCell sx={bodyCellSx}>
                                 {row.alertCount?.totalAlertCount ? (
                                   <Tooltip
                                     arrow
                                     placement="top"
                                     color='solid'
-                                    title={
-                                      <PatientAlertsTooltipContent
-                                        alerts={row.alertCount}
-                                        legendItems={patientAlertLegened}
-                                      />
-                                    }
+                                    title={<PatientAlertsTooltipContent alerts={row.alertCount} legendItems={patientAlertLegened} />}
                                   >
-                                    <Box sx={{ display: 'inline-flex', width: '100%' }}>
+                                    <Box sx={{ display: 'inline-flex', justifyContent: 'center' }}>
                                       <PatientAlerts alerts={row.alertCount} />
                                     </Box>
                                   </Tooltip>
@@ -2061,47 +2114,47 @@ export default function PatientTable() {
                               </TableCell>
                             )}
 
-                            {/* {showAcuityColumn && (
+                            {showAcuityColumn && (
                               <TableCell style={{ paddingLeft: '10px' }}>
                                 {row.acuity === 'N/A' ? (
-                                  <Typography fontSize={14} variant="body1" fontWeight="bold" pl={1}>
+                                  <Typography variant='body1' fontWeight="bold" pl={1}>
                                     N/A
                                   </Typography>
                                 ) : (
-                                  <Chip size="small" label={row.acuity} color={acuityColor[row.acuity as keyof typeof acuityColor]} />
-
+                                  <Chip variant="filled" label={row.acuity} size="small" color={acuityColor[row.acuity as keyof typeof acuityColor]} />
                                 )}
                               </TableCell>
-                            )} */}
+                            )}
 
                             {showEnrolledProgramColumn && (
-                              <TableCell>
-                                <Typography fontSize={16} variant="body2" fontWeight="bold" textAlign={'center'}>
+                              <TableCell sx={bodyCellSx}>
+                                <Typography fontSize={14} variant="body2" fontWeight="bold">
                                   {row.programDisplay ?? 'N/A'}
                                 </Typography>
                               </TableCell>
                             )}
 
                             {showStatusColumn && (
-                              <TableCell>
-                                <Typography variant="body1" fontWeight="bold">
-                                  {row.status}
-                                </Typography>
+                              <TableCell sx={bodyCellSx}>
+                                <Chip
+                                  size="small"
+                                  label={row.status}
+                                  color={statusColor[row.status as NormalizedStatus] ?? 'default'}
+                                  variant="filled"
+                                />
                               </TableCell>
                             )}
 
                             {showActionColumn && (
-                              <TableCell>
-                                <Box sx={{ display: 'flex', gap: 2 }}>
-                                  <Button
-                                    size="small"
-                                    variant="text"
-                                    startIcon={<RemoveRedEye />}
-                                    onClick={(e) => handlePatientAction(e, row)}
-                                  >
-                                    View
-                                  </Button>
-                                </Box>
+                              <TableCell sx={bodyCellSx}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  startIcon={<RemoveRedEye />}
+                                  onClick={(e) => handlePatientAction(e, row)}
+                                >
+                                  View
+                                </Button>
                               </TableCell>
                             )}
                           </TableRow>
@@ -2208,6 +2261,7 @@ export default function PatientTable() {
                   </Button>
                 </Box> */}
               </Box>
+
               {showAlertsColumn && showAlertsLegend &&
                 <Box sx={{ minWidth: 0 }}>
                   <AlertsLegend items={patientAlertLegened} onClose={() => setShowAlertsLegend(false)} />
@@ -2408,7 +2462,7 @@ export default function PatientTable() {
             bgcolor: 'background.body',
           }}
         >
-          {/* <ModalClose /> */}
+          {/* <ModalClose /> */}x
 
           <Typography variant='h4' sx={{ mb: 1 }}>
             Filters
@@ -2569,6 +2623,6 @@ export default function PatientTable() {
           </Button>
         </Paper>
       </Drawer>
-    </ThemeProvider>
+    </ClinicThemeProvider>
   );
 }
