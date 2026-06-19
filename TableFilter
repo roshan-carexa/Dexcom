@@ -1,0 +1,296 @@
+import * as React from 'react';
+
+
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import SearchIcon from '@mui/icons-material/Search';
+import { Box, Button, Checkbox, Input, List, ListItem, Menu, MenuItem, Select, Typography } from '@mui/material';
+
+
+
+/* ---------- types ---------- */
+export type FilterOp = 'eq' | 'neq' | 'gt' | 'lt';
+export type TableFilterId = 'fall' | 'acuity' | 'gender' | 'age' | 'status' | (string & {});
+
+/* ---------- props ---------- */
+export interface TableFilterProps {
+  id?: TableFilterId;
+  label: string;
+  op: FilterOp;
+  setOp: (o: FilterOp) => void;
+  value: string[];
+  setValue: (v: string[]) => void;
+  options: string[];
+  placeholder?: string;
+  open?: boolean;
+  onOpen?: () => void;
+  onClose?: () => void;
+  onApply?: () => void;
+}
+
+function TableFilter({
+  id,
+  label,
+  op,
+  setOp,
+  value,
+  setValue,
+  options,
+  placeholder = 'All',
+  open,
+  onOpen,
+  onClose,
+  onApply,
+}: TableFilterProps) {
+  const isAge = id === 'age';
+
+  const [q, setQ] = React.useState('');
+  const [inputAge, setInputAge] = React.useState(value[0] ?? '');
+  const [selectedOperator, setSelectedOperator] = React.useState<FilterOp>(op);
+  React.useEffect(() => setSelectedOperator(op), [op]);
+  React.useEffect(() => setInputAge(value[0] ?? ''), [value]);
+
+  const hasSelection = isAge ? !!value[0] : value.length > 0;
+  const lettersOnly = (s: string) => s.replace(/[^a-zA-Z\s]/g, '');
+
+  const filtered = React.useMemo(() => {
+    if (isAge) return options;
+    const t = q.trim().toLowerCase();
+    return t ? options.filter((o) => o.toLowerCase().includes(t)) : options;
+  }, [q, options, isAge]);
+
+  const toggle = (opt: string) => {
+    if (isAge) return;
+    setValue(value.includes(opt) ? value.filter((v) => v !== opt) : [...value, opt]);
+  };
+
+  const handleOperatorChange = (e: React.SyntheticEvent | null, v: FilterOp | null) => {
+    e?.stopPropagation();
+    if (v) {
+      setSelectedOperator(v);
+      setOp(v);
+    }
+  };
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+
+  // const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const v = sanitizeNatural(e.target.value);
+  //   setInputAge(v);
+  //   if (v === '') setValue([]);
+  //   else setValue([v]);
+  // };
+
+  const appliedRef = React.useRef(false);
+  const openSnapshotValueRef = React.useRef<string[]>([]);
+  const openSnapshotOpRef = React.useRef<FilterOp>(op);
+  const controlled = typeof open === 'boolean';
+  const [localOpen, setLocalOpen] = React.useState(false);
+  const isOpen = controlled ? (open as boolean) : localOpen;
+  const openDropdown = () => (controlled ? onOpen?.() : setLocalOpen(true));
+  const closeDropdownRaw = () => (controlled ? onClose?.() : setLocalOpen(false));
+
+  const closeDropdownWithMaybeRevert = React.useCallback(() => {
+    if (!appliedRef.current) {
+      setOp(openSnapshotOpRef.current);
+      setValue(openSnapshotValueRef.current);
+      setInputAge(openSnapshotValueRef.current[0] ?? '');
+      setSelectedOperator(openSnapshotOpRef.current);
+    }
+    closeDropdownRaw();
+  }, [setOp, setValue]);
+
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handler = (e: Event) => {
+      const t = e.target as Node | null;
+      if (rootRef.current && t && !rootRef.current.contains(t)) {
+        closeDropdownWithMaybeRevert();
+      }
+    };
+
+    document.addEventListener('pointerdown', handler, true);
+    document.addEventListener('click', handler, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', handler, true);
+      document.removeEventListener('click', handler, true);
+    };
+  }, [isOpen, closeDropdownWithMaybeRevert]);
+
+  return (
+    <Box
+      ref={rootRef}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closeDropdownWithMaybeRevert();
+        }
+      }}
+      sx={{
+        outline: 'none',
+        display: { xs: 'block', sm: 'inline-block' },
+        width: { xs: '100%', sm: 'auto' },
+      }}
+    >
+      <Menu
+        anchorEl={anchorEl}
+        open={isOpen}
+        onClose={onClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        {/* Operator */}
+        <Box
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Select
+            size="small"
+            value={selectedOperator}
+              // onChange={handleOperatorChange}
+            sx={{
+              width: '100%',
+            }}
+          >
+            <MenuItem value="eq">{label} = (equals)</MenuItem>
+
+            {!isAge && (
+              <MenuItem value="neq">{label} != (not equals)</MenuItem>
+            )}
+
+            {isAge && (
+              <>
+                <MenuItem value="gt">{label} &gt; (greater than)</MenuItem>
+                <MenuItem value="lt">{label} &lt; (less than)</MenuItem>
+              </>
+            )}
+          </Select>
+        </Box>
+
+        {/* Content */}
+        {isAge ? (
+          <Box
+            sx={{ mt: 2 }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Input
+              id="age-input"
+              size="small"
+              type="number"
+              placeholder="Enter Age"
+              value={inputAge}
+              onChange={(e) => {
+                let digits = e.target.value.replace(/\D+/g, '');
+                if (digits.length > 1)
+                  digits = digits.replace(/^0+/, '') || '0';
+
+                setInputAge(digits);
+                setValue(digits ? [digits] : []);
+              }}
+              inputProps={{
+                min: 1,
+                step: 1,
+                inputMode: 'numeric',
+              }}
+            />
+          </Box>
+        ) : (
+          <Box>
+            {/* Search */}
+            <Input
+              size="small"
+              placeholder={`Search ${label}`}
+              value={q}
+              startAdornment={<SearchIcon />}
+              onChange={(e) => setQ(lettersOnly(e.target.value))}
+            />
+
+            {/* List */}
+            <Box
+              sx={{
+                maxHeight: 260,
+                overflowY: 'auto',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <List sx={{ py: 0 }}>
+                {filtered.map((opt) => {
+                  const checked = value.includes(opt);
+
+                  return (
+                    <MenuItem
+                      key={`${id ?? label}-${opt}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(opt);
+                      }}
+                    >
+                      <Checkbox checked={checked} />
+                      <Typography variant="body2">{opt}</Typography>
+                    </MenuItem>
+                  );
+                })}
+
+                {filtered.length === 0 && (
+                  <MenuItem disabled>
+                    <Typography variant="body2">No results</Typography>
+                  </MenuItem>
+                )}
+              </List>
+            </Box>
+          </Box>
+        )}
+
+        {/* Footer */}
+        <Box
+          sx={{ display: 'flex', gap: 1, mt: 1 }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={!hasSelection}
+            aria-label={
+              isAge ? 'Clear age input' : 'Clear selection'
+            }
+            onClick={() => {
+              setValue([]);
+              if (isAge) setInputAge('');
+            }}
+          >
+            {isAge ? 'Clear input' : 'Clear selection'}
+          </Button>
+
+          <Box sx={{ flex: 1 }} />
+
+          <Button
+            size="small"
+            onClick={() => {
+              appliedRef.current = true;
+              onApply?.();
+              closeDropdownRaw();
+            }}
+          >
+            Apply
+          </Button>
+        </Box>
+      </Menu>
+    </Box>
+  );
+}
+
+export default React.memo(TableFilter);
