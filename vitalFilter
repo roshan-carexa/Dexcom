@@ -1,0 +1,513 @@
+import * as React from 'react';
+import Box from '@mui/joy/Box';
+import Button from '@mui/joy/Button';
+import Dropdown from '@mui/joy/Dropdown';
+import Input from '@mui/joy/Input';
+import Menu from '@mui/joy/Menu';
+import MenuButton from '@mui/joy/MenuButton';
+import Option from '@mui/joy/Option';
+import Select from '@mui/joy/Select';
+import Typography from '@mui/joy/Typography';
+import IconButton from '@mui/joy/IconButton';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
+import type { FilterOp } from '../tableFilter/TableFilter';
+
+export type VitalKey =
+    | 'heartRate'
+    | 'respiratoryRate'
+    | 'spo2'
+    | 'bodyTemperature'
+    | 'systolic'
+    | 'diastolic'
+    | 'bloodGlucose'
+    | 'bodyWeight'
+
+export interface VitalCondition {
+    vital: VitalKey;
+    op: FilterOp;
+    value: string;
+}
+
+export interface VitalFilterProps {
+    label?: string;
+    value: VitalCondition[];
+    setValue: (rows: VitalCondition[]) => void;
+    open?: boolean;
+    onOpen?: () => void;
+    onClose?: () => void;
+    onApply?: () => void;
+}
+
+const VITAL_OPTIONS: Array<{
+    label: string;
+    value: VitalKey;
+    allowsDecimal?: boolean;
+}> = [
+        { label: 'Heart Rate', value: 'heartRate' },
+        { label: 'Oxygen Saturation', value: 'spo2' },
+        { label: 'Temperature', value: 'bodyTemperature', allowsDecimal: true },
+        { label: 'Systolic', value: 'systolic' },
+        { label: 'Diastolic', value: 'diastolic' },
+        { label: 'Blood Glucose', value: 'bloodGlucose' },
+        { label: 'Weight', value: 'bodyWeight' }
+
+    ];
+
+function getVitalMeta(vital: VitalKey) {
+    return VITAL_OPTIONS.find((v) => v.value === vital);
+}
+
+function formatOp(op: FilterOp) {
+    return op === 'eq' ? '=' : op === 'neq' ? '!=' : op === 'gt' ? '>' : '<';
+}
+
+function sanitizeValue(raw: string, allowsDecimal: boolean) {
+    if (allowsDecimal) {
+        let next = raw.replace(/[^0-9.]/g, '');
+        const parts = next.split('.');
+        if (parts.length > 2) next = `${parts[0]}.${parts.slice(1).join('')}`;
+        return next;
+    }
+
+    let next = raw.replace(/\D+/g, '');
+    if (next.length > 1) next = next.replace(/^0+/, '') || '0';
+    return next;
+}
+
+function normalizeValue(raw: string, allowsDecimal: boolean) {
+    if (!raw) return '';
+
+    if (allowsDecimal) {
+        const n = Number.parseFloat(raw);
+        if (!Number.isFinite(n) || n < 0) return '';
+        return String(n);
+    }
+
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) return '';
+    return String(n);
+}
+
+function VitalFilter({
+    label = 'Vitals',
+    value,
+    setValue,
+    open,
+    onOpen,
+    onClose,
+    onApply,
+}: VitalFilterProps) {
+    const controlled = typeof open === 'boolean';
+    const [localOpen, setLocalOpen] = React.useState(false);
+    const isOpen = controlled ? open : localOpen;
+
+    const rootRef = React.useRef<HTMLDivElement | null>(null);
+    const appliedRef = React.useRef(false);
+    const snapshotRef = React.useRef<VitalCondition[]>([]);
+
+    const openDropdown = () => (controlled ? onOpen?.() : setLocalOpen(true));
+    const closeDropdownRaw = () => (controlled ? onClose?.() : setLocalOpen(false));
+
+    const closeDropdownWithMaybeRevert = React.useCallback(() => {
+        if (!appliedRef.current) {
+            setValue(snapshotRef.current.map((row) => ({ ...row })));
+        }
+        closeDropdownRaw();
+    }, [setValue]);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        const handler = (e: Event) => {
+            const t = e.target as Node | null;
+            if (rootRef.current && t && !rootRef.current.contains(t)) {
+                closeDropdownWithMaybeRevert();
+            }
+        };
+
+        document.addEventListener('pointerdown', handler, true);
+        document.addEventListener('click', handler, true);
+
+        return () => {
+            document.removeEventListener('pointerdown', handler, true);
+            document.removeEventListener('click', handler, true);
+        };
+    }, [isOpen, closeDropdownWithMaybeRevert]);
+
+    const addRow = () => {
+        setValue([
+            ...value,
+            {
+                vital: 'heartRate',
+                op: 'gt',
+                value: '',
+            },
+        ]);
+    };
+
+    const updateRow = (index: number, patch: Partial<VitalCondition>) => {
+        setValue(value.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    };
+
+    const removeRow = (index: number) => {
+        setValue(value.filter((_, i) => i !== index));
+    };
+
+    const clearAll = () => {
+        setValue([]);
+    };
+
+    const activeRows = value.filter((row) => row.value.trim());
+    const hasSelection = activeRows.length > 0;
+
+    return (
+        <Box
+            ref={rootRef}
+            tabIndex={-1}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    closeDropdownWithMaybeRevert();
+                }
+            }}
+            sx={{
+                display: { xs: 'block', sm: 'inline-block' },
+                width: { xs: '100%', sm: 'auto' },
+                outline: 'none',
+            }}
+        >
+            <Dropdown
+                open={isOpen}
+                onOpenChange={(_, next) => {
+                    if (next) {
+                        appliedRef.current = false;
+                        snapshotRef.current = value.map((row) => ({ ...row }));
+                        openDropdown();
+                        return;
+                    }
+
+                    // IMPORTANT:
+                    // Ignore Joy's internal attempts to close the menu while user is interacting
+                    // inside the dropdown. We only close on:
+                    // 1) Apply button
+                    // 2) Escape key
+                    // 3) outside click handler above
+                }}
+            >
+                <MenuButton
+                    slots={{ root: Button }}
+                    slotProps={{
+                        root: {
+                            variant: 'outlined',
+                            size: 'sm',
+                            sx: (t) => {
+                                const isHighlighted = hasSelection || isOpen;
+                                return {
+                                    height: 32,
+                                    borderRadius: 6,
+                                    borderColor: isHighlighted
+                                        ? t.vars.palette.primary.outlinedBorder
+                                        : t.vars.palette.neutral.outlinedBorder,
+                                    borderWidth: isHighlighted ? '2px' : '1px',
+                                    backgroundColor: isHighlighted
+                                        ? t.vars.palette.background.level1
+                                        : t.vars.palette.background.surface,
+                                    px: 1,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 0.75,
+                                    whiteSpace: 'nowrap',
+                                    width: { xs: '100%', sm: 'auto' },
+                                    maxWidth: { xs: '100%', sm: 420 },
+                                    boxShadow:
+                                        'var(--joy-shadowRing, 0 0 #000), 0px 1px 2px 0px rgba(var(--joy-shadowChannel, 21 21 21) / var(--joy-shadowOpacity, 0.08))',
+                                    '&:hover': { backgroundColor: t.vars.palette.background.level1 },
+                                };
+                            },
+                        },
+                    }}
+                >
+                    <Typography level="body-sm" fontWeight="lg">
+                        {label}
+                    </Typography>
+
+                    {hasSelection && (
+                        <>
+                            <Box
+                                component="span"
+                                sx={{
+                                    ml: 0.25,
+                                    px: 0.5,
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    lineHeight: 1.4,
+                                    bgcolor: 'primary.softBg',
+                                    color: 'primary.solidBg',
+                                }}
+                            >
+                                {activeRows.length}
+                            </Box>
+
+                            <Typography
+                                level="body-sm"
+                                sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: 140,
+                                }}
+                            >
+                                {`${getVitalMeta(activeRows[0].vital)?.label ?? activeRows[0].vital} ${formatOp(
+                                    activeRows[0].op
+                                )} ${activeRows[0].value}`}
+                            </Typography>
+
+                            {activeRows.length > 1 && (
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        ml: 0.25,
+                                        px: 0.5,
+                                        borderRadius: 6,
+                                        fontSize: 12,
+                                        lineHeight: 1.4,
+                                        bgcolor: 'neutral.softBg',
+                                        color: 'neutral.plainColor',
+                                    }}
+                                >
+                                    +{activeRows.length - 1}
+                                </Box>
+                            )}
+                        </>
+                    )}
+
+                    <ArrowDropDownIcon sx={{ ml: 1.25 }} />
+                </MenuButton>
+
+                <Menu
+                    placement="bottom-end"
+                    disablePortal
+                    sx={{
+                        minWidth: { xs: '93%', sm: 520 },
+                        maxWidth: '100%',
+                        p: 1,
+                        gap: 1,
+                        borderRadius: 10,
+                        overflow: 'visible',
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1,
+                        }}
+                    >
+                        {value.length === 0 && (
+                            <Box sx={{
+                                display:'flex',
+                                alignItems:'center',
+                                justifyContent:'center',
+                                borderRadius: 'sm',
+                                border: '1px solid',
+                                borderColor: 'neutral.outlinedBorder',
+                                py:2,
+                            }}>
+                                <Typography level="body-sm" color="neutral">
+                                    No vitals added yet.
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {value.map((row, index) => {
+                            const meta = getVitalMeta(row.vital);
+                            const allowsDecimal = !!meta?.allowsDecimal;
+
+                            return (
+                                <Box
+                                    key={`${row.vital}-${index}`}
+                                    sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: { xs: '1fr', sm: '1.35fr 0.9fr 1fr auto' },
+                                        gap: 1,
+                                        alignItems: 'center',
+                                        p: 1,
+                                        borderRadius: 'sm',
+                                        border: '1px solid',
+                                        borderColor: 'neutral.outlinedBorder',
+                                    }}
+                                >
+                                    <Select<VitalKey>
+                                        size="sm"
+                                        value={row.vital}
+                                        onChange={(_, v) => {
+                                            if (!v) return;
+                                            const nextMeta = getVitalMeta(v);
+                                            const normalized = normalizeValue(row.value, !!nextMeta?.allowsDecimal);
+                                            updateRow(index, { vital: v, value: normalized });
+                                        }}
+                                        slotProps={{
+                                            button: {
+                                                onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+                                                onClick: (e: React.MouseEvent) => e.stopPropagation(),
+                                            },
+                                            listbox: {
+                                                disablePortal: true,
+                                                onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+                                                onClick: (e: React.MouseEvent) => e.stopPropagation(),
+                                                sx: { zIndex: 1501 },
+                                            },
+                                        }}
+                                    >
+                                        {VITAL_OPTIONS.map((opt) => (
+                                            <Option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                            </Option>
+                                        ))}
+                                    </Select>
+
+                                    <Select<FilterOp>
+                                        size="sm"
+                                        value={row.op}
+                                        onChange={(_, v) => {
+                                            if (v) updateRow(index, { op: v });
+                                        }}
+                                        slotProps={{
+                                            button: {
+                                                onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+                                                onClick: (e: React.MouseEvent) => e.stopPropagation(),
+                                            },
+                                            listbox: {
+                                                disablePortal: true,
+                                                onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+                                                onClick: (e: React.MouseEvent) => e.stopPropagation(),
+                                                sx: { zIndex: 1501 },
+                                            },
+                                        }}
+                                    >
+                                        <Option value="eq">=</Option>
+                                        <Option value="neq">!=</Option>
+                                        <Option value="gt">&gt;</Option>
+                                        <Option value="lt">&lt;</Option>
+                                    </Select>
+
+                                    <Input
+                                        size="sm"
+                                        placeholder="Enter value"
+                                        value={row.value}
+                                        onChange={(e) => {
+                                            updateRow(index, {
+                                                value: sanitizeValue(e.target.value, allowsDecimal),
+                                            });
+                                        }}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => e.stopPropagation()}
+                                        slotProps={{
+                                            input: {
+                                                inputMode: allowsDecimal ? 'decimal' : 'numeric',
+                                                onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+                                                    const allowed = [
+                                                        'Backspace',
+                                                        'Delete',
+                                                        'Tab',
+                                                        'ArrowLeft',
+                                                        'ArrowRight',
+                                                        'Home',
+                                                        'End',
+                                                    ];
+                                                    if (allowed.includes(e.key)) return;
+
+                                                    if (allowsDecimal) {
+                                                        if (['e', 'E', '+', '-'].includes(e.key)) {
+                                                            e.preventDefault();
+                                                            return;
+                                                        }
+                                                        if (!/^\d$/.test(e.key) && e.key !== '.') {
+                                                            e.preventDefault();
+                                                        }
+                                                        return;
+                                                    }
+
+                                                    if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    if (!/^\d$/.test(e.key)) e.preventDefault();
+                                                },
+                                                onBlur: () => {
+                                                    updateRow(index, {
+                                                        value: normalizeValue(row.value, allowsDecimal),
+                                                    });
+                                                },
+                                                onWheel: (e: React.WheelEvent<HTMLInputElement>) => {
+                                                    (e.target as HTMLInputElement).blur();
+                                                },
+                                            },
+                                        }}
+                                    />
+
+                                    <IconButton
+                                        size="sm"
+                                        variant="plain"
+                                        color="danger"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeRow(index);
+                                        }}
+                                    >
+                                        <DeleteOutlineIcon />
+                                    </IconButton>
+                                </Box>
+                            );
+                        })}
+
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                            <Button
+                                size="sm"
+                                variant="soft"
+                                startDecorator={<AddIcon />}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    addRow();
+                                }}
+                            >
+                                Add vital
+                            </Button>
+
+                            <Box sx={{ flex: 1 }} />
+
+                            <Button
+                                size="sm"
+                                variant="outlined"
+                                disabled={!value.length}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearAll();
+                                }}
+                            >
+                                Clear
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    appliedRef.current = true;
+                                    onApply?.();
+                                    closeDropdownRaw();
+                                }}
+                            >
+                                Apply
+                            </Button>
+                        </Box>
+                    </Box>
+                </Menu>
+            </Dropdown>
+        </Box>
+    );
+}
+
+export default React.memo(VitalFilter);
