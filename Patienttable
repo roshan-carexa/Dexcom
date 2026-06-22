@@ -1332,12 +1332,11 @@ export default function PatientTable() {
 
   if (permissionsLoading || picklistLoading) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <ClinicThemeProvider>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
           <CircularProgress />
         </Box>
-      </ThemeProvider>
+      </ClinicThemeProvider>
     );
   }
 
@@ -1350,14 +1349,14 @@ export default function PatientTable() {
     color: 'text.secondary',
     py: 1.25
   };
-  const headerLinkSx = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 'inherit',
-    fontWeight: 'inherit',
-    color: 'inherit'
-  };
+  // const headerLinkSx = {
+  //   display: 'inline-flex',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   fontSize: 'inherit',
+  //   fontWeight: 'inherit',
+  //   color: 'inherit'
+  // };
 
   const bodyCellSx = {
     textAlign: 'center',
@@ -1368,7 +1367,6 @@ export default function PatientTable() {
 
   return (
     <ClinicThemeProvider>
-
       {noPermission && (
         <Alert
           icon={<Lock />}
@@ -1425,7 +1423,18 @@ export default function PatientTable() {
           }}
         >
           <Box>
-            <Typography variant='h2' component="h1" sx={{ color: '#005eb8' }}>
+            <Typography
+              variant="h2"
+              sx={{
+                color: '#005eb8',
+                fontSize: {
+                  xs: '1.8rem',
+                  sm: '2.2rem',
+                  md: '2.75rem',
+                },
+                fontWeight: 600,
+              }}
+            >
               Patient Management
             </Typography>
             <Typography variant='body2'>Search and Manage your patients efficiently.</Typography>
@@ -1576,7 +1585,7 @@ export default function PatientTable() {
               </FormControl>
 
               {showFallFilter && (
-                <TableFilter
+                <TableFilter  
                   id="fall"
                   label="Fall Prediction"
                   op={filterFallPredictionOp}
@@ -1658,7 +1667,7 @@ export default function PatientTable() {
                 />
               )}
 
-              {/* {showVitalsFilter && (
+              {showVitalsFilter && (
                 <VitalFilter
                   label="Vitals"
                   value={filterVitals}
@@ -1672,7 +1681,7 @@ export default function PatientTable() {
                     lastKeyRef.current = null;
                   }}
                 />
-              )} */}
+              )}
 
               {showStatusFilter && (
                 <TableFilter
@@ -1777,24 +1786,24 @@ export default function PatientTable() {
             >
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, minWidth: 0 }}>
                 <Paper
-                  variant="outlined"
+                  elevation={1}
                   sx={{
-                    overflow: 'auto',          // 🔥 key fix (allow horizontal scroll)
-                    borderRadius: 'md',
+                    overflow: 'auto',
+                    borderRadius: 3,
                     width: '100%',
+                    border:0.5
                   }}
                 >
                   <Table
                     stickyHeader
                     sx={{
-                      minWidth: 900,
                       width: '100%',
                       borderCollapse: 'separate',
-                      borderSpacing: 0, // 👈 horizontal gap between columns
+                      borderSpacing: 0,
 
                       '& .MuiTableCell-root': {
-                        py: 0.75,
-                        px: 1.5,   // 👈 single global spacing rule
+                        py: 0.55,
+                        px: 1.5,
                         whiteSpace: 'nowrap',
                         verticalAlign: 'middle',
                       },
@@ -1814,7 +1823,6 @@ export default function PatientTable() {
                               component="button"
                               underline="none"
                               sx={{
-                                ...headerLinkSx,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 0.5,
@@ -1887,8 +1895,7 @@ export default function PatientTable() {
                         {showContactInfoColumn && (
                           <TableCell
                             sx={{
-                              ...headerCellSx,
-                              display: { xs: 'none', md: 'table-cell' }, // hide on small screens
+                              display: { md: 'table-cell' },
                             }}
                           >
                             Contact Information
@@ -1898,7 +1905,6 @@ export default function PatientTable() {
                         {showAlertsColumn && (
                           <TableCell
                             sx={{
-                              ...headerCellSx,
                               display: { xs: 'none', sm: 'table-cell' },
                             }}
                           >
@@ -1917,18 +1923,13 @@ export default function PatientTable() {
 
                         {showAcuityColumn && (
                           <TableCell
-                            sx={{
-                              minWidth: { xs: 80, sm: 120 },
-                              textAlign: 'center',
-                            }}
+                            sx={{ display: { xs: 'none', sm: 'table-cell' } }}
                           >
                             <Link
                               component="button"
                               underline="none"
                               sx={{
                                 display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
                                 gap: 0.5,
                                 width: '100%',
                                 fontWeight: 600,
@@ -1968,7 +1969,7 @@ export default function PatientTable() {
                         {showStatusColumn && (
                           <TableCell
                             sx={{
-                              minWidth: { xs: 80, sm: 120 },
+                              // minWidth: { xs: 80, sm: 120 },
                               whiteSpace: 'nowrap',
                             }}
                           >
@@ -2030,7 +2031,7 @@ export default function PatientTable() {
                             }}
                           >
                             {showMrnColumn && (
-                              <TableCell sx={bodyCellSx}>
+                              <TableCell >
                                 <Typography
                                   fontSize={14}
                                   variant='body2'
@@ -2077,7 +2078,7 @@ export default function PatientTable() {
                             )}
 
                             {showContactInfoColumn && (
-                              <TableCell sx={bodyCellSx}>
+                              <TableCell>
                                 {!row.contactInfo.phone && !row.contactInfo.email ? (
                                   <Typography fontSize={13} variant="body1" color="text.secondary">No contact info</Typography>
                                 ) : (
@@ -2096,7 +2097,7 @@ export default function PatientTable() {
                             )}
 
                             {showAlertsColumn && (
-                              <TableCell sx={bodyCellSx}>
+                              <TableCell>
                                 {row.alertCount?.totalAlertCount ? (
                                   <Tooltip
                                     arrow
@@ -2115,9 +2116,9 @@ export default function PatientTable() {
                             )}
 
                             {showAcuityColumn && (
-                              <TableCell style={{ paddingLeft: '10px' }}>
+                              <TableCell>
                                 {row.acuity === 'N/A' ? (
-                                  <Typography variant='body1' fontWeight="bold" pl={1}>
+                                  <Typography variant='body2' fontWeight="bold" pl={1}>
                                     N/A
                                   </Typography>
                                 ) : (
@@ -2127,7 +2128,7 @@ export default function PatientTable() {
                             )}
 
                             {showEnrolledProgramColumn && (
-                              <TableCell sx={bodyCellSx}>
+                              <TableCell>
                                 <Typography fontSize={14} variant="body2" fontWeight="bold">
                                   {row.programDisplay ?? 'N/A'}
                                 </Typography>
@@ -2177,89 +2178,6 @@ export default function PatientTable() {
                     disabled={loading}
                   />
                 </Stack>
-                {/* <Box
-                  sx={{
-                    mt: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    [`& .${iconButtonClasses.root}`]: { borderRadius: '50%' },
-                  }}
-                >
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<KeyboardArrowLeftIcon />}
-                    disabled={loading || serverPageIndex <= 1}
-                    onClick={handlePreviousPage}
-                  >
-                    Previous
-                  </Button>
-
-                  <Box
-                    sx={{
-                      flex: 1,
-                      display: { xs: 'none', sm: 'flex' },
-                      gap: 0.5,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}
-                  />
-
-                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
-                    {Array.from({ length: serverTotalPages }, (_, i) => i + 1).map((p) => (
-                      <IconButton
-                        key={p}
-                        size="small"
-                        onClick={() => goToPage(p)}
-                        disabled={loading}
-                        sx={{
-                          border: "1px solid",
-                          borderColor: p === serverPageIndex ? "primary.main" : "divider",
-                          backgroundColor:
-                            p === serverPageIndex ? "primary.main" : "transparent",
-                          color: p === serverPageIndex ? "#fff" : "text.primary",
-                          "&:hover": {
-                            backgroundColor:
-                              p === serverPageIndex ? "primary.dark" : "action.hover",
-                          },
-                        }}
-                      >
-                        {p}
-                      </IconButton>
-                    ))}
-                  </Box>
-
-                  <Box sx={{ flex: 1, display: { xs: 'block', sm: 'none' } }} />
-                  <Box sx={{ display: { xs: "flex", sm: "none" }, alignItems: "center" }}>
-                    <Select
-                      size="small"
-                      value={serverPageIndex}
-                      onChange={(e) => {
-                        if (loading) return;
-                        const v = e.target.value;
-                        if (v != null) goToPage(Number(v));
-                      }}
-                      disabled={loading}
-                    >
-                      {Array.from({ length: serverTotalPages }, (_, i) => (
-                        <MenuItem key={i + 1} value={i + 1}>
-                          Page {i + 1}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </Box>
-
-                  <Box sx={{ flex: 1 }} />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={loading || serverPageIndex >= serverTotalPages}
-                    onClick={handleNextPage}
-                  >
-                    Next<KeyboardArrowRightIcon />
-                  </Button>
-                </Box> */}
               </Box>
 
               {showAlertsColumn && showAlertsLegend &&
@@ -2426,7 +2344,6 @@ export default function PatientTable() {
                 ))
               )}
             </Box>
-
           </>
         )}
       </Box>
@@ -2435,24 +2352,23 @@ export default function PatientTable() {
         anchor="top"
         open={openFilters}
         onClose={() => setOpenFilters(false)}
-        PaperProps={{
-          sx: {
-            width: "100%",
-            maxWidth: "100%",
-            height: "100vh",
-            borderRadius: 0,
-            p: 0,
+        slotProps={{
+          paper: {
+            sx: {
+              width: '100%',
+              height: '100vh',
+              borderRadius: 0,
+            },
           },
-        }}
-        BackdropProps={{
-          sx: {
-            backdropFilter: "none",
-            backgroundColor: "rgba(0,0,0,0.72)",
+          backdrop: {
+            sx: {
+              backgroundColor: 'rgba(0,0,0,0.72)',
+            },
           },
         }}
       >
         <Paper
-          variant="elevation"
+          variant="outlined"
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -2462,9 +2378,9 @@ export default function PatientTable() {
             bgcolor: 'background.body',
           }}
         >
-          {/* <ModalClose /> */}x
+          {/* <ModalClose /> */}
 
-          <Typography variant='h4' sx={{ mb: 1 }}>
+          <Typography variant='body2' sx={{ mb: 1 }}>
             Filters
           </Typography>
 
