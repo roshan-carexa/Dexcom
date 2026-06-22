@@ -1,0 +1,395 @@
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, minWidth: 0 }}>
+                <Paper
+                  elevation={1}
+                  sx={{
+                    overflow: 'auto',
+                    borderRadius: 3,
+                    width: '100%',
+                    border:0.5
+                  }}
+                >
+                  <Table
+                    stickyHeader
+                    sx={{
+                      width: '100%',
+                      borderCollapse: 'separate',
+                      borderSpacing: 0,
+
+                      '& .MuiTableCell-root': {
+                        py: 0.55,
+                        px: 1.5,
+                        whiteSpace: 'nowrap',
+                        verticalAlign: 'middle',
+                      },
+                    }}
+                  >
+                    <TableHead>
+                      <TableRow>
+                        {showMrnColumn && (
+                          <TableCell
+                            sx={{
+                              ...headerCellSx,
+                              minWidth: { xs: 80, sm: 120 },
+                              textAlign: 'left',
+                            }}
+                          >
+                            <Link
+                              component="button"
+                              underline="none"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                maxWidth: '100%',
+                              }}
+                              onClick={() => {
+                                const isAsc = orderBy === 'mrn' && order === 'asc';
+                                setOrder(isAsc ? 'desc' : 'asc');
+                                setOrderBy('mrn');
+                                setServerPageIndex(1);
+                              }}
+                            >
+                              MRN
+                              <ArrowDropDownIcon
+                                sx={{
+                                  transition: '0.2s',
+                                  transform:
+                                    orderBy === 'mrn' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Link>
+                          </TableCell>
+                        )}
+
+                        {showNameColumn && (
+                          <TableCell
+                            sx={{
+                              minWidth: { xs: 120, sm: 180 },
+                              textAlign: 'left',
+                            }}
+                          >
+                            <Link
+                              component="button"
+                              underline="none"
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                fontWeight: 600,
+                                maxWidth: '100%',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                              onClick={() => {
+                                const isAsc = orderBy === 'name' && order === 'asc';
+                                setOrder(isAsc ? 'desc' : 'asc');
+                                setOrderBy('name');
+                                setServerPageIndex(1);
+                              }}
+                            >
+                              Name
+                              <ArrowDropDownIcon
+                                sx={{
+                                  transform:
+                                    orderBy === 'name' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                  transition: '0.2s',
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Link>
+                          </TableCell>
+                        )}
+
+                        {showContactInfoColumn && (
+                          <TableCell
+                            sx={{
+                              display: { md: 'table-cell' },
+                            }}
+                          >
+                            Contact Information
+                          </TableCell>
+                        )}
+
+                        {showAlertsColumn && (
+                          <TableCell
+                            sx={{
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
+                            {viewMode === 'ONBOARDED' && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                Alerts
+                                <Tooltip title={showAlertsLegend ? "Hide alert guide" : "Show alert guide"}>
+                                  <IconButton onClick={() => setShowAlertsLegend((p) => !p)}>
+                                    <Info size={15} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            )}
+                          </TableCell>
+                        )}
+
+                        {showAcuityColumn && (
+                          <TableCell
+                            sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+                          >
+                            <Link
+                              component="button"
+                              underline="none"
+                              sx={{
+                                display: 'inline-flex',
+                                gap: 0.5,
+                                width: '100%',
+                                fontWeight: 600,
+                              }}
+                              onClick={() => {
+                                const isAsc = orderBy === 'acuity' && order === 'asc';
+                                setOrder(isAsc ? 'desc' : 'asc');
+                                setOrderBy('acuity');
+                                setServerPageIndex(1);
+                              }}
+                            >
+                              Acuity
+                              <ArrowDropDownIcon
+                                sx={{
+                                  transform:
+                                    orderBy === 'acuity' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                  transition: '0.2s',
+                                  flexShrink: 0,
+                                }}
+                              />
+                            </Link>
+                          </TableCell>
+                        )}
+
+                        {showEnrolledProgramColumn && (
+                          <TableCell
+                            sx={{
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
+                            Care Program
+                          </TableCell>
+                        )}
+
+                        {showStatusColumn && (
+                          <TableCell
+                            sx={{
+                              // minWidth: { xs: 80, sm: 120 },
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <Link
+                              component="button"
+                              underline="none"
+                              onClick={() => {
+                                const isAsc = orderBy === 'status' && order === 'asc';
+                                setOrder(isAsc ? 'desc' : 'asc');
+                                setOrderBy('status');
+                                setServerPageIndex(1);
+                              }}
+                            >
+                              Status
+                              <ArrowDropDownIcon
+                                sx={{
+                                  transform:
+                                    orderBy === 'status' && order === 'asc'
+                                      ? 'rotate(180deg)'
+                                      : 'rotate(0deg)',
+                                  transition: '0.2s',
+                                }}
+                              />
+                            </Link>
+                          </TableCell>
+                        )}
+
+                        {showActionColumn && (
+                          <TableCell
+                            sx={{
+                              display: { xs: 'none', sm: 'table-cell' },
+                            }}
+                          >
+                            Action
+                          </TableCell>
+                        )}
+
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {picklistLoading || permissionsLoading || loading ? (
+                        Array.from({ length: rowsPerPage }).map((_, i) => <SkeletonRow key={i} />)
+                      ) : patients.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={visibleColumnCount || 1}>
+                            <Box sx={{ textAlign: 'center', py: 4, color: 'text.tertiary' }}>
+                              <Typography variant='body1' fontWeight="lg">No patients found</Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        patients.map((row, idx) => (
+                          <TableRow
+                            key={row.patientId}
+                            onClick={(e) => handlePatientAction(e, row)}
+                            sx={{
+                              ...bodyCellSx,
+                              minWidth: { xs: 80, sm: 120 },
+                            }}
+                          >
+                            {showMrnColumn && (
+                              <TableCell >
+                                <Typography
+                                  fontSize={14}
+                                  variant='body2'
+                                  sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.3 }}
+                                >
+                                  {row.mrn}
+                                </Typography>
+                              </TableCell>
+                            )}
+
+                            {showNameColumn && (
+                              <TableCell>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    gap: 1,
+                                    alignItems: 'center',
+                                    width: '100%',
+                                  }}
+                                >
+                                  <Avatar
+                                    src={row.photo?.dataUrl || undefined}
+                                    alt={row.name}
+                                    slotProps={{
+                                      img: {
+                                        onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
+                                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                        },
+                                        referrerPolicy: 'no-referrer',
+                                      },
+                                    }}
+                                    sx={{ width: 32, height: 32, fontSize: 14, bgcolor: 'rgb(78, 172, 255)', color: '#fff' }}
+                                  >
+                                    {getInitials(row.name) || <Person2Outlined />}
+                                  </Avatar>
+                                  <Box>
+                                    <Typography fontWeight="bold" fontSize={14} variant='body2'>{row.name}</Typography>
+                                    <Typography fontSize={13} variant="body1" color="text.secondary">
+                                      {row.age}Y, {row.gender.charAt(0).toUpperCase()}{row.gender.slice(1)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </TableCell>
+                            )}
+
+                            {showContactInfoColumn && (
+                              <TableCell>
+                                {!row.contactInfo.phone && !row.contactInfo.email ? (
+                                  <Typography fontSize={13} variant="body1" color="text.secondary">No contact info</Typography>
+                                ) : (
+                                  <>
+                                    {row.contactInfo.email && (
+                                      <Typography variant="body2" fontSize={13} sx={{ overflowWrap: 'anywhere' }}>
+                                        {row.contactInfo.email}
+                                      </Typography>
+                                    )}
+                                    {row.contactInfo.phone && (
+                                      <Typography fontSize={13} variant="body2">{formatPhone(row.contactInfo.phone)}</Typography>
+                                    )}
+                                  </>
+                                )}
+                              </TableCell>
+                            )}
+
+                            {showAlertsColumn && (
+                              <TableCell>
+                                {row.alertCount?.totalAlertCount ? (
+                                  <Tooltip
+                                    arrow
+                                    placement="top"
+                                    color='solid'
+                                    title={<PatientAlertsTooltipContent alerts={row.alertCount} legendItems={patientAlertLegened} />}
+                                  >
+                                    <Box sx={{ display: 'inline-flex', justifyContent: 'center' }}>
+                                      <PatientAlerts alerts={row.alertCount} />
+                                    </Box>
+                                  </Tooltip>
+                                ) : (
+                                  <PatientAlerts alerts={row.alertCount} />
+                                )}
+                              </TableCell>
+                            )}
+
+                            {showAcuityColumn && (
+                              <TableCell>
+                                {row.acuity === 'N/A' ? (
+                                  <Typography variant='body2' fontWeight="bold" pl={1}>
+                                    N/A
+                                  </Typography>
+                                ) : (
+                                  <Chip variant="filled" label={row.acuity} size="small" color={acuityColor[row.acuity as keyof typeof acuityColor]} />
+                                )}
+                              </TableCell>
+                            )}
+
+                            {showEnrolledProgramColumn && (
+                              <TableCell>
+                                <Typography fontSize={14} variant="body2" fontWeight="bold">
+                                  {row.programDisplay ?? 'N/A'}
+                                </Typography>
+                              </TableCell>
+                            )}
+
+                            {showStatusColumn && (
+                              <TableCell sx={bodyCellSx}>
+                                <Chip
+                                  size="small"
+                                  label={row.status}
+                                  color={statusColor[row.status as NormalizedStatus] ?? 'default'}
+                                  variant="filled"
+                                />
+                              </TableCell>
+                            )}
+
+                            {showActionColumn && (
+                              <TableCell sx={bodyCellSx}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  startIcon={<RemoveRedEye />}
+                                  onClick={(e) => handlePatientAction(e, row)}
+                                >
+                                  View
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </Paper>
+                <Stack sx={{ mt: 2 }} alignItems="center">
+                  <Pagination
+                    count={serverTotalPages}
+                    page={serverPageIndex}
+                    onChange={(event, value) => {
+                      if (!loading) goToPage(value);
+                    }}
+                    color="primary"
+                    shape="circular"
+                    showFirstButton
+                    showLastButton
+                    disabled={loading}
+                  />
+                </Stack>
+              </Box>
