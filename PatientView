@@ -1,0 +1,3669 @@
+import React, { useEffect, useRef, useState, Suspense, lazy, type JSX, useCallback, useMemo } from 'react';
+import { IconButton, Skeleton, Tooltip } from '@mui/material';
+import {
+  Avatar,
+  Box, Button,
+  Divider,
+  Grid,
+  Stack, Tab, Tabs, Typography, CircularProgress, Alert
+} from '@mui/material';
+import {
+  CallOutlined, EmailOutlined,
+  // Language as LanguageIcon,
+  Assignment as AssignmentIcon, Dashboard as DashboardIcon,
+  // InsertDriveFile as InsertDriveFileIcon,
+  MonitorHeart, LocalHospital,
+  Healing,
+  LocationOnOutlined,
+  History,
+  Restaurant as RestaurantIcon,
+  CorporateFare,
+  MedicalInformation,
+  Coronavirus,
+  Person,
+  HealthAndSafety,
+  FormatListBulleted,
+  // DeviceThermostatSharp,
+  Devices,
+  VideocamRounded,
+  NotificationsOutlined,
+  // HealthAndSafety,
+} from '@mui/icons-material';
+import CallIcon from "@mui/icons-material/Call";
+import ChecklistIcon from '@mui/icons-material/Checklist';
+import dayjs from 'dayjs';
+import { Group as GroupIcon } from '@mui/icons-material';
+
+import TextSnippetOutlinedIcon from '@mui/icons-material/TextSnippetOutlined';
+import AccessibleOutlinedIcon from '@mui/icons-material/AccessibleOutlined';
+import { ActivityIcon, Cpu, Leaf } from 'lucide-react';
+import axios from 'axios';
+
+const Overview = lazy(() => import('./Overview'));
+const Vitals = lazy(() => import('./Vitals'));
+const Medications = lazy(() => import('./Medications'));
+const OverviewSection = lazy(() => import('./OverviewSection'));
+const PatientDocuments = lazy(() => import('./PatientDocuments'));
+const DiagnosticReport = lazy(() => import('./DiagnosticReport'));
+const CarePlans = lazy(() => import('./CarePlans'));
+const Allergies = lazy(() => import('./Allergies'));
+const Conditions = lazy(() => import('./Conditions'));
+const Immunizations = lazy(() => import('./Immunizations'));
+const CareTeam = lazy(() => import('./CareTeam'));
+const ADTRecords = lazy(() => import('../../../snf/component/detailedPatient/ADTRecords'));
+const Nutrition = lazy(() => import('../../../snf/component/detailedPatient/Nutrition'));
+const SupplementOrders = lazy(() => import('../../../snf/component/detailedPatient/SupplementOrders'));
+const EpisodeOfCareRecords = lazy(() => import('../../../snf/component/detailedPatient/EpisodeOfCareRecords'));
+const Careprofile = lazy(() => import('../../../snf/component/detailedPatient/Careprofile'));
+const PccCareplanRecords = lazy(() => import('../../../snf/component/detailedPatient/PccCarePlanRecords'));
+const ProgressNotes = lazy(() => import('../../../snf/component/detailedPatient/ProgressNotes'));
+const CareplanKardexRecords = lazy(() => import('../../../snf/component/detailedPatient/CarePlanKardexItems'));
+const EmergencyContactsRecords = lazy(() => import('./EmergencyContactsRecords'));
+const Coverage = lazy(() => import('./Coverage'));
+// const AdlTabsPanel = lazy(() => import('./AdlTabsPanel'));
+const AdlAssessment = lazy(() => import('../../../snf/component/detailedPatient/ADLAssesmentScreen'));
+const AdlScore = lazy(() => import('../../../snf/component/detailedPatient/AdlScoreScreen'));
+const PatientDevices = lazy(() => import('../../../clinics/componenet/deailedPatient/PatientDevicesSection/PatientDevices'));
+const PatientAlerts = lazy(() => import('../../../clinics/componenet/deailedPatient/PatientAlertsSection/PatientAlerts'))
+import { useVoiceCall } from '../../../../contexts/VoiceCallContext';
+
+
+const IncidentList = lazy(() => import('../../../snf/component/detailedPatient/IncidentList'));
+import TabPanel from './TabPanel';
+import type { Patient } from '../../../../Patient';
+import { fhirRequest } from '../../services/HealthlakeAPis';
+import type { ObservationBundle } from '../../../../utils/extractVitalOverviewData';
+import * as signalR from '@microsoft/signalr';
+import formatPhone from '../../../../utils/formatPhone';
+import StatusChip from './StatusChip';
+import { usePermissions } from '../../../../contexts/PermissionsContext';
+import { Sick } from '@mui/icons-material';
+import { fetchAiAnalysis } from '../../services/aiAnalysis';
+import utc from 'dayjs/plugin/utc';
+import type { ADTRecord } from '../../../snf/component/detailedPatient/ADTRecords';
+import type { VitalsDataMap } from './Vitals';
+import { useLocation } from 'react-router';
+import { useFacility } from '../../../../contexts/FacilityContext';
+import { fetchTotalObservation } from '../../services/totalObservations';
+import PatientOverviewSkeleton from '../../skeletonLoaders/PatientOverviewSkeleton';
+import PatientCarePlansSkeleton from '../../skeletonLoaders/PatientCareplansSkeleton';
+import SimpleTableSkeleton from '../../skeletonLoaders/SimpleTableSkeleton';
+import VitalsPageSkeleton from '../../skeletonLoaders/VitalsPageSkeleton';
+import { fetchAdtRecords } from '../../../snf/services/AdtRecordsApi';
+import { fetchProgressRecords } from '../../../snf/services/ProgressNoteApi';
+import ADTSkeletonList from '../../../snf/skeletonLoaders/ADTSkeleton';
+import { searchHealthlakeIncident } from '../../../snf/services/HealthLakeIncident';
+import type { IncidentRow } from '../../../snf/component/detailedPatient/IncidentList';
+import { mapAdverseEventBundleToRows } from '../../../snf/component/detailedPatient/IncidentList';
+import { fetchCareprofileRecords } from '../../../snf/services/CareprofileApi';
+import CareProfileSkeleton from '../../../snf/skeletonLoaders/CareProfileSkeleton';
+import { fetchPccCareplanKardexes, fetchPccCareplanRecords } from '../../../snf/services/PccCareplanApi';
+import PccCareplanRecordsSkeleton from '../../../snf/skeletonLoaders/PccCarePlanRecordsSkeleton';
+import { fetchEpisodeOfCareRecords } from '../../../snf/services/EPisodeOfCareApi';
+import { BriefcaseMedical, Pill, Syringe } from 'lucide-react';
+import EpisodeOfCareRecordsSkeleton from '../../../snf/skeletonLoaders/EpisodeOfCareRecordsSkeleton';
+import ProgressNotesCardsSkeleton from '../../../snf/skeletonLoaders/ProgressNotesCardsSkeleton';
+import { fetchEmergencyContactRecords } from '../../../snf/services/EmergencyContactApi';
+import type { EmergencyContact, EmergencyContactType } from './EmergencyContactsRecords';
+import EmergencyContactsSkeleton from '../../../snf/skeletonLoaders/EmergencyContactsSkeleton';
+import type { ProgressNote } from '../../../snf/component/detailedPatient/ProgressNotes';
+import CoverageSkeleton from '../../skeletonLoaders/CoverageSkeleton';
+import IncidentListSkeleton from '../../../snf/skeletonLoaders/IncidentListSkeleton';
+import { getHwiGatewayInfo, getPateintAssignedGateway, type HwiGatewayInfo, type PatientInventoryResponse } from '../../../clinics/services/GatewayAPIs';
+import { useFacilityPicklist } from '../../../../contexts/FacilityPicklistContext';
+import type { FacilityPicklist } from '../../services/PicklistApi';
+import PatientCallHistory, { toCallOutcome, type PatientCallItem } from '../../../clinics/componenet/deailedPatient/PatientCallSection/PatientCallHistory';
+import {
+  closeLogActivity,
+  createLogActivity,
+  fetchPatientEventLogEventTypes,
+  pushPulseActivity,
+  type PatientEventLogEventTypesMonth,
+} from "../../../clinics/services/ActivitiesAPI";
+import PatientEventType from '../../../clinics/componenet/deailedPatient/PatientEventsSection/PatientEventType';
+import { useActivityPulse } from "../../../../hooks/useActivityPulse";
+import PatientGoalsSummary from '../../../clinics/componenet/deailedPatient/PatientSummarySection/PatientSummary';
+import { fetchProviderCallHistory, type CallHistoryFilter } from '../../../clinics/services/CallHistoryAPI';
+import { fetchClinicVitalsAnalytics, fetchPatientTasks, type ClinicVitalsAnalyticsResponse, type PatientTaskResponse, type VitalReading } from '../../../clinics/services/PatientAnalyticsAPI';
+import type { PatientAlertsFilterKey } from '../../../clinics/componenet/deailedPatient/PatientAlertsSection/PatientAlerts';
+import { fetchAlertsPage, type AlertItem } from '../../../clinics/services/AlertsAPI';
+
+dayjs.extend(utc);
+
+type Period = 'today' | 'week' | 'month' | 'year' | 'decade';
+const extentRank: Record<Period, number> = { today: 0, week: 1, month: 2, year: 3, decade: 4 };
+
+const PAGE_SIZE = 5;
+
+// helper to compute date lower bound
+const getDateGtISO = (p: Period): string => {
+  const now = dayjs.utc(); // current time in UTC
+  if (p === 'today') return now.startOf('day').format('YYYY-MM-DD');
+  if (p === 'week') return now.subtract(7, 'day').format('YYYY-MM-DD');
+  if (p === 'month') return now.subtract(1, 'month').format('YYYY-MM-DD');
+  if (p === 'year') return now.subtract(1, 'year').format('YYYY-MM-DD');
+
+  return now.subtract(10, 'year').format('YYYY-MM-DD');
+};
+
+
+const acuityVariantMap: Record<'RED' | 'YELLOW' | 'GREEN', 'error' | 'warning' | 'success'> = {
+  RED: 'error',
+  YELLOW: 'warning',
+  GREEN: 'success',
+};
+
+const fallPredictionVariantMap: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+  Normal: 'default',
+  Low: 'success',
+  Moderate: 'warning',
+  High: 'error',
+  Emergency: 'error',
+};
+
+function acuityName(code: string | null | undefined): string {
+  if (!code) return '';
+  switch ((code || '').toUpperCase()) {
+    case 'RED':
+      return 'Critical';
+    case 'YELLOW':
+      return 'Observation';
+    case 'GREEN':
+      return 'Stable';
+    default:
+      return code;
+  }
+}
+
+export type TabId =
+  | 'overview'
+  | 'summary'
+  | 'ai'
+  | 'vitals'
+  | 'carePlan'
+  | 'transcript'
+  | 'devices'
+  | 'alerts'
+  | 'activities'
+  | 'careprofile'
+  | 'contacts'
+  | 'careTeam'
+  | 'coverage'
+  | 'conditions'
+  | 'allergies'
+  | 'immunizations'
+  | 'medications'
+  | 'nutrition'
+  | 'reports'
+  | 'documents'
+  | 'progressNotes'
+  | 'pccCarePlan'
+  | 'pccCarePlan:careplan'
+  | 'pccCarePlan:kardex'
+  | 'incidents'
+  | 'adtRecords'
+  | 'adl'
+  | 'adl:assessment'
+  | 'adl:score'
+  | 'episodesOfCare';
+
+type TabDef = { id: TabId; label: string; icon: JSX.Element };
+
+type TabDataState = Partial<Record<TabId, any>>;
+type TabBoolState = Partial<Record<TabId, boolean>>;
+type TabErrState = Partial<Record<TabId, string>>;
+
+const detailTabs: TabDef[] = [
+  { id: 'overview', label: 'Overview', icon: <DashboardIcon /> },
+  { id: 'summary', label: 'Overview', icon: <DashboardIcon /> },
+  { id: 'ai', label: 'AI Summary', icon: <Cpu size={16} strokeWidth={2.5} /> },
+  { id: 'vitals', label: 'Vitals', icon: <MonitorHeart /> },
+  { id: 'carePlan', label: 'Care Plan', icon: <BriefcaseMedical size={16} strokeWidth={2.5} /> },
+  { id: 'devices', label: 'Devices', icon: <Devices /> },
+  { id: 'transcript', label: 'Transcript', icon: <VideocamRounded /> },
+  { id: 'activities', label: 'Activities', icon: <ActivityIcon size={16} strokeWidth={2.5} /> },
+  { id: 'alerts', label: 'Alerts', icon: <NotificationsOutlined /> },
+  { id: 'careprofile', label: 'Careprofile', icon: <MedicalInformation /> },
+  { id: 'contacts', label: 'Contacts', icon: <CallOutlined /> },
+  { id: 'careTeam', label: 'Care Team', icon: <GroupIcon /> },
+  { id: 'coverage', label: 'Coverage', icon: <HealthAndSafety /> },
+  { id: 'conditions', label: 'Conditions', icon: <Sick /> },
+  { id: 'allergies', label: 'Allergies', icon: <Coronavirus /> },
+  { id: 'immunizations', label: 'Immunizations', icon: <Syringe size={18} strokeWidth={2.5} /> },
+  { id: 'medications', label: 'Medications', icon: <Pill size={16} strokeWidth={2.5} /> },
+  { id: 'nutrition', label: 'Nutritions', icon: <Leaf size={16} strokeWidth={3} /> },
+  { id: 'reports', label: 'Reports', icon: <AssignmentIcon /> },
+  { id: 'documents', label: 'Documents', icon: <AssignmentIcon /> },
+  { id: 'progressNotes', label: 'Progress Notes', icon: <TextSnippetOutlinedIcon /> },
+  { id: 'pccCarePlan', label: 'PointClickCare Care Plan', icon: <Healing /> },
+  { id: 'incidents', label: 'Incidents', icon: <AccessibleOutlinedIcon /> },
+  { id: 'adtRecords', label: 'ADT Records', icon: <History /> },
+  { id: 'adl', label: 'ADL', icon: <ChecklistIcon /> },
+  { id: 'episodesOfCare', label: 'Episodes of Care', icon: <LocalHospital /> },
+];
+
+
+
+const TAB_SKELETON_MAP: Record<TabId, JSX.Element> = {
+  overview: <PatientOverviewSkeleton />,
+  summary: <PatientOverviewSkeleton />,
+  ai: <ADTSkeletonList />,
+  vitals: <VitalsPageSkeleton />,
+  carePlan: <PatientCarePlansSkeleton />,
+  transcript: <ADTSkeletonList />,
+  devices: <ADTSkeletonList />,
+  alerts: <ADTSkeletonList />,
+  activities: <ADTSkeletonList />,
+  careprofile: <CareProfileSkeleton />,
+  contacts: <EmergencyContactsSkeleton />,
+  careTeam: <SimpleTableSkeleton columns={3} rows={7} filterCount={1} showRightButton />,
+  coverage: <CoverageSkeleton />,
+  conditions: <SimpleTableSkeleton columns={5} rows={7} filterCount={3} />,
+  allergies: <SimpleTableSkeleton columns={6} rows={7} filterCount={3} />,
+  immunizations: <SimpleTableSkeleton columns={7} rows={7} filterCount={3} />,
+  medications: <SimpleTableSkeleton columns={5} rows={7} filterCount={3} />,
+  nutrition: <></>,
+  reports: <SimpleTableSkeleton columns={6} rows={7} filterCount={1} />,
+  documents: <SimpleTableSkeleton columns={6} rows={7} filterCount={1} />,
+  progressNotes: <ProgressNotesCardsSkeleton />,
+  pccCarePlan: <PccCareplanRecordsSkeleton />,
+  "pccCarePlan:careplan": <PccCareplanRecordsSkeleton />,
+  "pccCarePlan:kardex": <PccCareplanRecordsSkeleton />,
+  incidents: <IncidentListSkeleton />,
+  adtRecords: <ADTSkeletonList />,
+  adl: <SimpleTableSkeleton columns={4} rows={7} filterCount={0} />,
+  "adl:assessment": <SimpleTableSkeleton columns={4} rows={7} filterCount={0} />,
+  "adl:score": <SimpleTableSkeleton columns={4} rows={7} filterCount={0} />,
+  episodesOfCare: <EpisodeOfCareRecordsSkeleton items={2} />,
+};
+
+const renderSkeletonForTab = (tabId: TabId) =>
+  TAB_SKELETON_MAP[tabId] ?? <CircularProgress />;
+
+const TAB_TO_LOG_RESOURCE_KEY: Partial<Record<TabId, string>> = {
+  vitals: "vital",
+  medications: "medication",
+  carePlan: "careplan",
+  reports: "document",
+  documents: "document",
+  alerts: "alert",
+  conditions: "condition",
+  allergies: 'allergy',
+  immunizations: 'immunization',
+  ai: 'ai_analytics',
+  coverage: 'coverage',
+  summary: 'overview',
+  transcript: 'transcript',
+  activities: 'activity',
+};
+
+type PatientEventType =
+  | "interactive_communication"
+  | "alert_management"
+  | "education"
+  | "care_plan"
+  | "rpm_setup"
+  | "rpm_training"
+  | "care_coordination"
+  | "medication_reconciliation"
+  | "vital_collection"
+  | "vital_review";
+
+
+const TAB_TO_EVENT_TYPE: Partial<Record<TabId, PatientEventType>> = {
+  transcript: "care_coordination",
+  contacts: "care_coordination",
+  carePlan: "care_plan",
+  vitals: "vital_review",
+  medications: "medication_reconciliation",
+  reports: "care_coordination",
+  documents: "care_coordination",
+  careTeam: "care_coordination",
+  coverage: "care_coordination",
+  conditions: "care_coordination",
+  allergies: "care_coordination",
+  immunizations: "care_coordination",
+  adtRecords: "care_coordination",
+  incidents: "care_coordination",
+  episodesOfCare: "care_coordination",
+  progressNotes: "care_coordination",
+  activities: "care_coordination",
+  overview: "care_coordination",
+  summary: "care_coordination",
+  devices: "care_coordination",
+  ai: 'care_coordination',
+};
+
+
+const resourceMapByTab: Partial<Record<TabId, string>> = {
+  carePlan: 'CarePlan',
+  careTeam: 'CareTeam',
+  conditions: 'Condition',
+  allergies: 'AllergyIntolerance',
+  immunizations: 'Immunization',
+  medications: 'MedicationRequest',
+  reports: 'DiagnosticReport',
+  documents: 'DocumentReference',
+};
+
+const VITAL_CODES: Record<string, string> = {
+  heartRate: '8867-4',
+  spo2: '59408-5',
+  bloodGlucose: '2339-0',
+  bloodPressure: '85354-9',
+  bodyWeight: '29463-7',
+  bodyTemperature: '8310-5',
+  painLevel: '72514-3',
+  respiration: '9279-1'
+};
+
+const OVERVIEW_VITAL_KEYS = ['spo2', 'bloodGlucose', 'bloodPressure', 'heartRate'] as const;
+const OVERVIEW_PERIOD: Period = 'week';
+
+interface PatientDetailedViewProps {
+  patient: Patient;
+  activityContext: { eventId: string; correlationId: string } | null;
+  onClosePatientPageEvent?: () => void | Promise<void>;
+}
+
+
+type ComplianceData = { score: number | null; note: string | null; observedAt?: string | null };
+export type AcuityCode = 'RED' | 'YELLOW' | 'GREEN' | null;
+export type AcuityData = { value: number | null; code: AcuityCode }
+export type FallPredictionCode = "Normal" | "Low" | "Moderate" | "High" | "Emergency" | null;
+type VitalKey = keyof VitalsDataMap;
+
+const buildContactAddress = (c: EmergencyContact): string | null => {
+  const lineParts = [c.addressLine1, c.addressLine2, c.addressLine3]
+    .filter(Boolean)
+    .map(part => part!.trim())
+    .filter(Boolean);
+
+  const cityStateZip = [c.city, c.state, c.postalCode]
+    .filter(Boolean)
+    .map(part => part!.trim())
+    .filter(Boolean)
+    .join(', ');
+
+  const country = c.country?.trim();
+
+  const segments = [
+    ...lineParts,
+    cityStateZip || null,
+    country || null,
+  ].filter(Boolean) as string[];
+
+  if (segments.length === 0) return null;
+
+  return segments.join(', ');
+};
+
+const formatContactTypes = (types?: EmergencyContactType[]) => {
+  if (!types || types.length === 0) return [];
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const t of types) {
+    const ct = (t.contactType || '').trim();
+    const st = (t.standardContactType || '').trim();
+
+    const text = ct && st ? `${ct} (${st})` : (ct || st);
+    if (!text) continue;
+
+    if (!seen.has(text)) {
+      seen.add(text);
+      out.push(text);
+    }
+  }
+  return out;
+};
+
+const renderPhoneRow = (label: string, value?: string | null) => {
+  const formatted = value ? formatPhone(value) : null;
+  if (!formatted) return null;
+
+  return (
+    <Stack direction="column" spacing={0.2} alignItems="flex-start" mt={0.5}>
+      <Stack direction="row" spacing={0.5} alignItems={'center'}>
+        <CallOutlined sx={{ fontSize: 15 }} />
+        <Typography variant="caption" color='text.secondary'>
+          {label} :
+        </Typography>
+        <Typography variant="caption" fontSize={12} >
+          {formatted}
+        </Typography>
+      </Stack>
+
+
+    </Stack>
+  );
+};
+
+const stripHtml = (input?: string | null) =>
+  (input ?? '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+export default function PatientDetailedView({ patient, activityContext, onClosePatientPageEvent, }: PatientDetailedViewProps) {
+
+  const location = useLocation();
+  const { openCall } = useVoiceCall();
+  const patientDBId = patient.patientDatabaseId || patient.patientId;
+  const patinentId = patient.patientId;
+  const { selectedFacilityId, selectedFacility } = useFacility();
+  const { picklist, logResource } = useFacilityPicklist();
+  const defaultTab = location.state?.defaultTab ?? picklist?.patientDetail?.defaultTab ?? 'overview';
+  const activityContainerRef = useRef<HTMLDivElement | null>(null);
+  const hasClosedParentPageEventRef = useRef(false);
+  const [selectedTabId, setSelectedTabId] = useState<TabId>(defaultTab);
+  const [tabData, setTabData] = useState<TabDataState>({});
+  const [loadingTabs, setLoadingTabs] = useState<TabBoolState>({});
+  const [errorTabs, setErrorTabs] = useState<TabErrState>({});
+  const [canEditCarePlan, setCanEditCarePlan] = useState(true);
+  const [overviewInitailized, setOverviewInitailized] = useState<boolean>(false);
+  const [compliance, setCompliance] = useState<ComplianceData>({ score: null, note: null, observedAt: null });
+  const [acuity, setAcuity] = useState<AcuityData>({ value: patient.acuitySore ?? null, code: patient.acuity ?? null });
+  const [fallPrediction, setFallPrediction] = useState<FallPredictionCode>(patient.fallPrediction as FallPredictionCode ?? null);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
+  // const [callOpen, setCallOpen] = useState(false);
+  const [emergencyMeta, setEmergencyMeta] = useState({
+    pageIndex: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
+
+  const [_emergencyPage, setEmergencyPage] = useState(1);
+  const { can } = usePermissions();
+  const canListObservation = can('Observation', 'List');
+  const canReadCarePlan = can('CarePlan', 'Read');
+  const canListCarePlan = can('CarePlan', 'List');
+  const canListMedicationRequest = can('Medication', 'List');
+  const canListCareTeam = can('CareTeam', 'List');
+  // const canDeletePatient = can('Patient', 'Delete');
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [ordersSubTab, setOrdersSubTab] = useState<number>(0);
+  //const canListDiagnosticReport = can('DiagnosticReport', 'List');
+  // const canListDocumentReference = can('DocumentReference', 'List');
+  // const canListAllergyIntolerance = can('AllergyIntolerance', 'List');
+  //const canListCondition = can('Condition', 'List');
+  // const canListImmunization = can('Immunization', 'List');
+
+
+  const [vitalsData, setVitalsData] = useState<Record<string, ObservationBundle>>({});
+  const [vitalsLoading, setVitalsLoading] = useState(false);
+  const [vitalsError, setVitalsError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>('week');
+  const [_loadedExtent, setLoadedExtent] = useState<Period>('week');
+  const [_rawVitals, setRawVitals] = useState<Record<string, ObservationBundle>>({});
+
+  const [selectedVital, setSelectedVital] = useState<VitalKey>('spo2');
+  const [loadedExtentPerVital, setLoadedExtentPerVital] = useState<Record<VitalKey, Period>>({
+    heartRate: OVERVIEW_PERIOD,
+    spo2: OVERVIEW_PERIOD,
+    bloodGlucose: OVERVIEW_PERIOD,
+    bloodPressure: OVERVIEW_PERIOD,
+    bodyWeight: 'today',
+    bodyTemperature: 'today',
+    painLevel: 'today',
+    respiration: 'today',
+  });
+
+  const [vitalLoadingScoped, setVitalLoadingScoped] = useState<boolean>(false);
+  const [vitalErrorScoped, setVitalErrorScoped] = useState<string | null>(null);
+
+  const [summaryAnalytics, setSummaryAnalytics] = useState<ClinicVitalsAnalyticsResponse | null>(null);
+  const [summaryAnalyticsLoading, setSummaryAnalyticsLoading] = useState(false);
+  const [summaryAnalyticsError, setSummaryAnalyticsError] = useState<string | null>(null);
+  const [_summaryInitialized, setSummaryInitialized] = useState(false);
+  const [patientTasks, setPatientTasks] = useState<PatientTaskResponse | null>(null);
+  const [patientTasksLoading, setPatientTasksLoading] = useState(false);
+  const [patientTasksError, setPatientTasksError] = useState<string | null>(null);
+
+
+  const [adtRecords, setAdtRecords] = useState<ADTRecord[]>([]);
+  const [adtPage, setAdtPage] = useState<number>(1);
+  const [adtTotalItems, setAdtTotalItems] = useState<number>(0);
+  const [adtTotalPages, setAdtTotalPages] = useState<number>(1);
+  const [adtInitialized, setAdtInitialized] = useState<boolean>(false);
+
+  const [incidentRows, setIncidentRows] = useState<IncidentRow[]>([]);
+
+  const [pccSubTab, setPccSubTab] = useState<number>(0);
+  const PCC_CAREPLAN_KEY = 'pccCarePlan:careplan';
+  const PCC_KARDEX_KEY = 'pccCarePlan:kardex';
+
+  // const [incidentLoading, setIncidentLoading] = useState(false);
+  // const [incidentError, setIncidentError] = useState<string | null>(null);
+  const [progressRecords, setProgressRecords] = useState<ProgressNote[]>([]);
+  const [progressPage, setProgressPage] = useState<number>(1);
+  const [progressTotalItems, setProgressTotalItems] = useState<number>(0);
+  const [progressTotalPages, setProgressTotalPages] = useState<number>(1);
+  const [progressInitialized, setProgressInitialized] = useState<boolean>(false);
+  const [nutritionRefreshToken, setNutritionRefreshToken] = useState(0);
+
+  const [adlSubTab, setAdlSubTab] = useState<number>(0);
+  const ADL_ASSESSMENT_KEY = 'adl:assessment';
+  const ADL_SCORE_KEY = 'adl:score';
+
+  const [gatewayInfosByUuid, setGatewayInfosByUuid] = useState<Record<string, HwiGatewayInfo>>({});
+  const [eventTypesLoading, setEventTypesLoading] = useState(false);
+  const [eventTypesError, setEventTypesError] = useState<string | null>(null);
+  const [eventTypesCurrentMonth, setEventTypesCurrentMonth] = useState<PatientEventLogEventTypesMonth | null>(null);
+  const [eventTypesPrevByStart, setEventTypesPrevByStart] = useState<Record<string, PatientEventLogEventTypesMonth>>({});
+  // const unresolvedAlertsCount = 3;
+
+  const [callHistoryRows, setCallHistoryRows] = useState<PatientCallItem[]>([]);
+  const [callHistoryMeta, setCallHistoryMeta] = useState({ pageIndex: 1, totalPages: 1, totalItems: 0 });
+  const [callHistoryFilter, setCallHistoryFilter] = useState<CallHistoryFilter>("VoiceCall");
+  const [callHistoryLoading, setCallHistoryLoading] = useState(false);
+  const [callHistoryError, setCallHistoryError] = useState<string | null>(null);
+
+  const [alertsFilter, setAlertsFilter] = useState<PatientAlertsFilterKey>("Unresolved");
+  const [alertsItems, setAlertsItems] = useState<AlertItem[]>([]);
+  const [alertsHasMore, setAlertsHasMore] = useState(true);
+  const [alertsPageIndex, setAlertsPageIndex] = useState(1);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsLoadingMore, setAlertsLoadingMore] = useState(false);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [alertsCounts, setAlertsCounts] = useState({ all: 0, unresolved: 0, resolved: 0 });
+  const [alertsInitialized, setAlertsInitialized] = useState(false);
+
+  const alertsAbortRef = useRef<AbortController | null>(null);
+  const alertsInFlightRef = useRef(false);
+  const alertsSeenRef = useRef<Set<string>>(new Set());
+  const alertsLastQueryKeyRef = useRef<string>("");
+
+  const unresolvedAlertsCount = alertsCounts.unresolved;
+
+  // const [progressNoteDetails, setProgressNoteDetails] = useState<ProgressNote[]>([]);
+  // const [adlTab, setAdlTab] = useState<'assessment' | 'score'>('assessment');
+
+  const setTabLoading = (id: TabId, v: boolean) =>
+    setLoadingTabs(prev => ({ ...prev, [id]: v }));
+
+  const setTabError = (id: TabId, msg: string) =>
+    setErrorTabs(prev => ({ ...prev, [id]: msg }));
+
+  const setTabBundle = (id: TabId, data: any) =>
+    setTabData(prev => ({ ...prev, [id]: data }));
+
+
+  const resourceDisplayName: Record<string, string> = {
+    Observation: 'Observations',
+    CarePlan: 'Care Plans',
+    AllergyIntolerance: 'Allergies',
+    MedicationRequest: 'Medications',
+    DocumentReference: 'Documents',
+    DiagnosticReport: 'Diagnostic Reports',
+    CareTeam: 'Care Team',
+    Condition: 'Conditions',
+    Immunization: 'Immunizations',
+  };
+  const EMPTY_BUNDLE: any = { entry: [] };
+
+  const baseurl = import.meta.env.VITE_BASE_URL;
+
+  const visibleTabs = React.useMemo(() => {
+    const configured = (picklist as FacilityPicklist)?.patientDetail?.tabs;
+
+    // If no config, show all in registry order
+    if (!configured || configured.length === 0) return detailTabs;
+
+    const allow = new Set<TabId>(configured);
+
+    return detailTabs.filter(t => allow.has(t.id));
+  }, [selectedFacility]);
+
+  useEffect(() => {
+    setSelectedTabId(defaultTab);
+    setTabData({});
+    setLoadingTabs({});
+    setErrorTabs({});
+    setOverviewInitailized(false);
+    setPeriod('week');
+    // setLoadedExtent('week');
+    setLoadedExtent('today');
+    setRawVitals({});
+    setVitalsData({});
+    setSelectedVital('spo2');
+    setLoadedExtentPerVital({
+      heartRate: 'today',
+      spo2: 'today',
+      bloodGlucose: 'today',
+      bloodPressure: 'today',
+      bodyWeight: 'today',
+      bodyTemperature: 'today',
+      painLevel: 'today',
+      respiration: 'today',
+    });
+    setVitalLoadingScoped(false);
+    setVitalErrorScoped(null);
+    setAdtRecords([]);
+    setAdtPage(1);
+    setAdtTotalItems(0);
+    setAdtTotalPages(1);
+    setAdtInitialized(false);
+    setEmergencyContacts([]);
+    setEmergencyMeta({
+      pageIndex: 1,
+      totalPages: 1,
+      totalItems: 0,
+    });
+    setEmergencyPage(1);
+    setPccSubTab(0);
+    setAdlSubTab(0);
+
+    setSummaryAnalytics(null);
+    setSummaryAnalyticsLoading(false);
+    setSummaryAnalyticsError(null);
+    setSummaryInitialized(false);
+
+    setPatientTasks(null);
+    setPatientTasksLoading(false);
+    setPatientTasksError(null);
+
+    setCallHistoryFilter("VoiceCall");
+    setCallHistoryRows([]);
+    setCallHistoryMeta({ pageIndex: 1, totalPages: 1, totalItems: 0 });
+    setCallHistoryLoading(false);
+    setCallHistoryError(null);
+
+    setEventTypesLoading(false);
+    setEventTypesError(null);
+    setEventTypesCurrentMonth(null);
+    setEventTypesPrevByStart({});
+
+    setAlertsFilter("Unresolved");
+    setAlertsItems([]);
+    setAlertsHasMore(true);
+    setAlertsPageIndex(1);
+    setAlertsLoading(false);
+    setAlertsLoadingMore(false);
+    setAlertsError(null);
+    setAlertsCounts({ all: 0, unresolved: 0, resolved: 0 });
+    setAlertsInitialized(false);
+    alertsSeenRef.current = new Set();
+    alertsLastQueryKeyRef.current = "";
+    alertsAbortRef.current?.abort();
+    alertsAbortRef.current = null;
+    alertsInFlightRef.current = false;
+
+    hasClosedParentPageEventRef.current = false;
+  }, [patient]);
+
+
+  const [composition48h, setComposition48h] = useState<{
+    id?: string | null;
+    title?: string | null;
+    date?: string | null;
+    html?: string | null;
+  } | null>(null);
+
+  const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const { mrn, name, dob, age, gender, patientId, room, unit, bed, floor, contactInfo: { phone, email }, address } = patient;
+
+
+  const handleDetailTab = (_: React.SyntheticEvent, newVal: TabId) => {
+    setSelectedTabId(newVal);
+  };
+
+
+  const getStrictInitials = (first?: string | null, last?: string | null, fullName?: string) => {
+    const pick = (s?: string | null) => (typeof s === 'string' && s.trim() ? s.trim() : '');
+    const f = pick(first);
+    const l = pick(last);
+
+    if (f && l) return (f[0] + l[0]).toUpperCase();
+
+    // fallback: derive from full string, skipping common prefixes
+    const full = pick(fullName);
+    if (!full) return '';
+
+    const prefixes = ['mr', 'mrs', 'ms', 'miss', 'dr', 'prof', 'sir', 'madam', 'mx'];
+    const tokens = full
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(Boolean);
+
+    // drop a single leading prefix if present
+    const head = tokens[0]?.replace(/\./g, '').toLowerCase();
+    const startIdx = prefixes.includes(head) ? 1 : 0;
+
+    const core = tokens.slice(startIdx);
+    if (core.length === 0) return '';
+    if (core.length === 1) return core[0][0].toUpperCase();
+
+    return (core[0][0] + core[core.length - 1][0]).toUpperCase();
+  };
+
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  // reset failure when patient changes
+  useEffect(() => {
+    setAvatarFailed(false);
+    setAdtPage(1);
+  }, [patientId]);
+
+  const initials = getStrictInitials(patient.firstName, patient.lastName, patient.name);
+
+
+  //activity logged section for the tabs.
+  const nowFacility = () => {
+    return dayjs().utc().toISOString();
+  };
+
+  const tabLogRef = useRef<{
+    tabId: TabId;
+    eventId: string;
+    currentTime: string;
+  } | null>(null);
+
+
+
+  const [currentEventLogId, setCurrentEventLogId] = useState<string | null>(activityContext?.eventId ?? null);
+
+  const getInstigatorId = () => {
+    return tabLogRef.current?.eventId ?? currentEventLogId ?? activityContext?.eventId ?? undefined;
+  };
+
+  const getTabResourceId = (tabId: TabId): string | undefined => {
+    if (!logResource) return undefined;
+
+    const resourceKey = (
+      TAB_TO_LOG_RESOURCE_KEY[tabId] ??
+      String(resourceMapByTab[tabId] ?? tabId)
+    ).toLowerCase();
+
+    return logResource[resourceKey]?.id;
+  };
+
+  const logCarePlanUpdateEvent = useCallback(async () => {
+    if (picklist?.tenant !== "clinic") return;
+    if (!selectedFacilityId) return;
+    if (!patientDBId) return;
+
+    // still require parent context ids for correlation/parenting
+    if (!activityContext?.eventId || !activityContext?.correlationId) return;
+
+    const resourceId = getTabResourceId("carePlan");
+    if (!resourceId) return;
+
+    const currentTime = nowFacility();
+
+    try {
+      await createLogActivity(selectedFacilityId, {
+        patientId: patientDBId,
+        eventType: TAB_TO_EVENT_TYPE["carePlan"] ?? "care_plan",
+        resourceId,
+        timeStamp: currentTime,
+        operation: "Update",
+        instigatorId: getInstigatorId(),
+        correlationId: activityContext.correlationId,
+        startAt: currentTime,
+        endAt: currentTime,
+      });
+    } catch (e) {
+      console.error("careplan update log failed", e);
+    }
+  }, [
+    picklist?.tenant,
+    selectedFacilityId,
+    patientDBId,
+    activityContext?.eventId,
+    activityContext?.correlationId,
+    logResource,
+  ]);
+
+
+  useEffect(() => {
+    if (picklist?.tenant != 'clinic') return;
+    if (!selectedFacilityId) return;
+    if (!patientDBId) return;
+
+    const nextTabId = selectedTabId;
+    let cancelled = false;
+    const currentFaclityTime = nowFacility();
+    let previousEventId: string | undefined = tabLogRef.current?.eventId ?? currentEventLogId ?? activityContext?.eventId ?? undefined;
+
+    void (async () => {
+      // 1) Always close previous tab log if it exists and tab changed
+      if (tabLogRef.current && tabLogRef.current.tabId !== nextTabId) {
+        try {
+          await closeLogActivity(
+            selectedFacilityId,
+            tabLogRef.current.eventId,
+            currentFaclityTime
+          );
+        } catch (e) {
+          console.error("closeTabLog failed", e);
+        } finally {
+          tabLogRef.current = null;
+          setCurrentEventLogId(null);
+        }
+      }
+
+      // 2) If no parent activity context, don't create new tab log
+      if (!activityContext?.eventId || !activityContext?.correlationId) return;
+
+      // 3) If this tab is already logged, don't create again
+      if (tabLogRef.current?.tabId === nextTabId) return;
+
+      // 4) Create new tab log only if tab has resource
+      const resourceId = getTabResourceId(nextTabId);
+      if (!resourceId) return;
+
+      const currentTime = nowFacility();
+      const baseEventType = TAB_TO_EVENT_TYPE[nextTabId] ?? "care_coordination";
+
+      const opForTabOpen = "Read";
+
+      try {
+
+        if (!hasClosedParentPageEventRef.current) {
+          await onClosePatientPageEvent?.();
+          hasClosedParentPageEventRef.current = true;
+        }
+
+        const res = await createLogActivity(selectedFacilityId, {
+          patientId: patientDBId,
+          eventType: baseEventType,
+          resourceId,
+          timeStamp: currentTime,
+          operation: opForTabOpen,
+          instigatorId: previousEventId,
+          correlationId: activityContext.correlationId,
+          startAt: currentTime,
+        });
+
+        if (cancelled) return;
+
+        tabLogRef.current = {
+          tabId: nextTabId,
+          eventId: res.eventId,
+          currentTime,
+        };
+        setCurrentEventLogId(res.eventId);
+      } catch (e) {
+        console.error("startTabLog failed", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedTabId,
+    selectedFacilityId,
+    patientDBId,
+    activityContext?.eventId,
+    activityContext?.correlationId,
+    logResource,
+  ]);
+
+
+
+  useEffect(() => {
+    if (picklist?.tenant != 'clinic') return;
+    return () => {
+      if (!selectedFacilityId) return;
+      if (!tabLogRef.current) return;
+
+      void closeLogActivity(
+        selectedFacilityId,
+        tabLogRef.current.eventId,
+        dayjs.utc().toISOString()
+      ).catch((e) => console.error("closeTabLog (unmount) failed", e));
+
+      tabLogRef.current = null;
+      setCurrentEventLogId(null);
+    };
+  }, [selectedFacilityId]);
+
+
+
+
+  const buildBody = (resource: string) => {
+    switch (resource) {
+      case 'Observation': return `patient=${patientId}&_sort=-date&_count=100`;
+      case 'CarePlan': return `patient=${patientId}&status=active`;
+      case 'MedicationRequest': return `patient=${patientId}&_count=100`;
+      case 'DiagnosticReport': return `patient=${patientId}&_count=100`;
+      case 'Coverage': return `beneficiary=${patientId}&_count=100&_include:*`;
+      case 'DocumentReference': return `patient=${patientId}&_sort=-date&_count=100`;
+      case 'AllergyIntolerance': return `patient=${patientId}&_count=100`;
+      case 'Condition': return `patient=${patientId}&_sort=-recorded-date&_count=100`;
+      case 'Immunization': return `patient=${patientId}&_count=100&_sort=-date`;
+      case 'CareTeam': return `patient=${patientId}&status=active&_count=100`; //&_include=CareTeam:participant
+
+      default: return `patient=${patientId}`;
+    }
+  };
+
+  const fetchAiOverview = useCallback(async () => {
+    // Respect your current permission gates
+    if (!canListObservation) {
+      setCompliance({ score: null, note: null, observedAt: null });
+      setAcuity({ value: null, code: null });
+      setFallPrediction(null);
+      setComposition48h(null);
+      setAnalysisError(null);
+      return;
+    }
+
+    const source = axios.CancelToken.source();
+    setAnalysisError(null);
+    setTabLoading('ai', true);
+    try {
+      const data = await fetchAiAnalysis(patientId, selectedFacilityId, {
+        baseUrl: baseurl,
+        cancelToken: source.token,
+      });
+
+      // 1) Fall prediction
+      const risk = data.fallPrediction?.risk ?? null;
+      const allowed = new Set(['Normal', 'Low', 'Moderate', 'High', 'Emergency']);
+      setFallPrediction(risk && allowed.has(risk) ? (risk as FallPredictionCode) : null);
+
+      // 2) Compliance
+      const score =
+        data.compliance?.score != null && Number.isFinite(data.compliance.score)
+          ? data.compliance.score
+          : null;
+
+      const interpretation =
+        typeof data.compliance?.interpretation === 'string'
+          ? data.compliance!.interpretation
+          : null;
+
+      setCompliance({
+        score,
+        note: interpretation,
+        observedAt: null,
+      });
+
+      // 3) 48h summary
+      const title = data.fortyEightHourSummary?.title ?? null;
+      const summary = data.fortyEightHourSummary?.summary ?? null;
+
+      setComposition48h(
+        title || summary
+          ? {
+            id: null,
+            title,
+            date: null,
+            html: summary ? `<p>${summary}</p>` : null,
+          }
+          : null
+      );
+
+      // 4) Triage (acuity)
+      const tierRaw = (data.triage?.tier || '').toString().toUpperCase();
+      const tierMap: Record<string, 'RED' | 'YELLOW' | 'GREEN' | null> = {
+        RED: 'RED',
+        YELLOW: 'YELLOW',
+        GREEN: 'GREEN',
+      };
+      const mappedTier = tierMap[tierRaw] ?? null;
+
+      const triageValue =
+        typeof data.triage?.score === 'number' && Number.isFinite(data.triage.score)
+          ? data.triage.score
+          : null;
+
+      setAcuity({ value: triageValue, code: mappedTier });
+    } catch (e: any) {
+      console.error(e);
+      setAnalysisError(
+        e?.message ?? 'Failed to fetch AI analysis. Some insights may be missing.'
+      );
+      setCompliance({ score: null, note: null, observedAt: null });
+      setAcuity({ value: null, code: null });
+      setFallPrediction(null);
+      setComposition48h(null);
+    } finally {
+      setTabLoading('ai', false);
+    }
+  }, [canListObservation, patientId, selectedFacilityId, baseurl]);
+
+  const fetchOveriewVitals = useCallback(
+    async () => {
+      if (!canListObservation) {
+        setVitalsLoading(false);
+        setVitalsError(null);
+        setVitalsData({});
+        setRawVitals({});
+        return;
+      }
+
+      setVitalsLoading(true);
+      setVitalsError(null);
+
+      const source = axios.CancelToken.source();
+
+      try {
+        const dateGtISO = getDateGtISO(OVERVIEW_PERIOD);
+
+        //  4 overview vitals
+        const arr = await Promise.all(
+          OVERVIEW_VITAL_KEYS.map(async (key) => {
+            const code = VITAL_CODES[key];
+            const bundle = await fetchTotalObservation({
+              patientId,
+              selectedFacilityId,
+              code,
+              dateGtISO,
+              cancelToken: source.token,
+            });
+            return { key, bundle };
+          })
+        );
+
+        const next: Record<string, ObservationBundle> = {};
+        arr.forEach(({ key, bundle }) => {
+          next[key] = bundle;
+        });
+
+        // merge with whatever else you have in state
+        setRawVitals(prev => ({ ...prev, ...next }));
+        setVitalsData(prev => ({ ...prev, ...next }));
+
+        setLoadedExtentPerVital(prev => {
+          const updated = { ...prev };
+          OVERVIEW_VITAL_KEYS.forEach(k => {
+            updated[k as VitalKey] = OVERVIEW_PERIOD;
+          });
+          return updated;
+        });
+      } catch (err: any) {
+        setVitalsError(err?.message || 'Failed to fetch vitals');
+      } finally {
+        setVitalsLoading(false);
+        source.cancel('completed');
+      }
+    },
+    [canListObservation, patientId, selectedFacilityId]
+  );
+  const fetchSummaryAnalytics = useCallback(async () => {
+    if (!selectedFacilityId || !patientDBId) return;
+
+    setSummaryAnalyticsLoading(true);
+    setSummaryAnalyticsError(null);
+    setPatientTasksLoading(true);
+    setPatientTasksError(null);
+
+    // start both in parallel
+    const analyticsPromise = fetchClinicVitalsAnalytics(selectedFacilityId, patientDBId);
+    const tasksPromise = fetchPatientTasks(selectedFacilityId, patientDBId, { billingMonth: dayjs().utc().toISOString() });
+
+    try {
+      // analytics result
+      try {
+        const analyticsData = await analyticsPromise;
+        setSummaryAnalytics(analyticsData);
+        setSummaryAnalyticsError(null);
+      } catch (e: any) {
+        setSummaryAnalytics(null);
+        setSummaryAnalyticsError(e?.message || "Failed to load vitals analytics.");
+      }
+
+      // tasks result
+      try {
+        const tasksData = await tasksPromise;
+        setPatientTasks(tasksData);
+        setPatientTasksError(null);
+      } catch (e: any) {
+        setPatientTasks(null);
+        setPatientTasksError(e?.message || "Failed to load tasks.");
+      }
+    } finally {
+      setSummaryAnalyticsLoading(false);
+      setPatientTasksLoading(false);
+    }
+  }, [selectedFacilityId, patientDBId]);
+
+  const fetchEmergencyContanct = useCallback(async (page: number) => {
+    setTabError('contacts', '');
+    setTabLoading('contacts', true);
+    try {
+      const { data, meta } = await fetchEmergencyContactRecords(patientDBId, page, selectedFacilityId);
+      setEmergencyContacts(data ?? []);
+      setEmergencyMeta({
+        pageIndex: meta?.pageIndex ?? page,
+        totalPages: meta?.totalPages ?? 1,
+        totalItems: meta?.totalItems ?? (data?.length ?? 0),
+      });
+      setEmergencyPage(page);
+    } catch (err: any) {
+      setTabError('contacts', err?.message || 'Failed to load emergency contacts.');
+      setEmergencyContacts([]);
+      setEmergencyMeta({ pageIndex: 1, totalPages: 1, totalItems: 0 });
+      setEmergencyPage(1);
+    } finally {
+      setTabLoading('contacts', false);
+    }
+  }, [patientDBId, selectedFacilityId]);
+
+  const fetchCallHistory = useCallback(
+    async (page: number) => {
+      if (!selectedFacilityId || !patientDBId) return;
+
+      setCallHistoryLoading(true);
+      setCallHistoryError(null);
+
+      try {
+        const res = await fetchProviderCallHistory(selectedFacilityId, patientDBId, {
+          pageIndex: page,
+          pageSize: 10,
+        });
+
+        const rows: PatientCallItem[] = (res.data ?? []).map((item) => {
+          const callStart =
+            item.callStart && item.callStart !== "0001-01-01T00:00:00"
+              ? item.callStart
+              : item.createdAt;
+
+          return {
+            id: String(item.id),
+            externalId: item.externalId ?? null,
+            at: String(callStart),
+            clinicianName: String(item.providerName ?? "System"),
+            patientName: item.patientName ?? null,
+            communicationType: item.communicationType ?? null,
+            callReason: item.intentName ?? item.reason ?? null,
+            outcome: toCallOutcome(item.status),
+            durationSec:
+              typeof item.callDurationSeconds === "number"
+                ? item.callDurationSeconds
+                : null,
+            callEnd:
+              item.callEnd && item.callEnd !== "0001-01-01T00:00:00"
+                ? item.callEnd
+                : null,
+            recordingUrl: item.recordingUrl ?? null,
+            transcriptionUrl: item.transcriptionUrl ?? null,
+          };
+        });
+        setCallHistoryRows(rows);
+        setCallHistoryMeta({
+          pageIndex: res.meta?.pageIndex ?? page,
+          totalPages: res.meta?.totalPages ?? 1,
+          totalItems: res.meta?.totalItems ?? rows.length,
+        });
+      } catch (e: any) {
+        setCallHistoryError(e?.message || "Failed to load call history.");
+        setCallHistoryRows([]);
+        setCallHistoryMeta({ pageIndex: 1, totalPages: 1, totalItems: 0 });
+      } finally {
+        setCallHistoryLoading(false);
+      }
+    },
+    [selectedFacilityId, patientDBId, callHistoryFilter]
+  );
+
+  const resolvedFromFilter = (f: PatientAlertsFilterKey) => {
+    if (f === "All") return undefined;
+    if (f === "Unresolved") return false;
+    if (f === "Resolved") return true;
+    return undefined;
+  };
+
+  const fetchPatientAlerts = useCallback(
+    async (nextPage: number, mode: "replace" | "append", filterOverride?: PatientAlertsFilterKey) => {
+      if (!selectedFacilityId || !patientId) return;
+      if (alertsInFlightRef.current) return;
+
+      alertsInFlightRef.current = true;
+      alertsAbortRef.current?.abort();
+
+      const ac = new AbortController();
+      alertsAbortRef.current = ac;
+
+      try {
+        setAlertsError(null);
+        if (mode === "replace") setAlertsLoading(true);
+        else setAlertsLoadingMore(true);
+        const resolved = resolvedFromFilter(filterOverride ?? alertsFilter);
+
+        const resp = await fetchAlertsPage({
+          pageIndex: nextPage,
+          pageSize: 20,
+          selectedFacilityId,
+          patientId: patientDBId,
+          resolved: resolved,
+          signal: ac.signal,
+        });
+
+        const incoming: AlertItem[] = resp.items ?? [];
+
+        const deduped = incoming.filter((x) => {
+          if (!x?.id) return false;
+          if (alertsSeenRef.current.has(x.id)) return false;
+          alertsSeenRef.current.add(x.id);
+          return true;
+        });
+
+        if (nextPage === 1) {
+          const unresolved = resp.meta?.metaData?.Unresolved ?? 0;
+          const resolved = resp.meta?.metaData?.Resolved ?? 0;
+          setAlertsCounts({
+            unresolved,
+            resolved,
+            all: unresolved + resolved,
+          });
+        }
+
+        setAlertsItems((prev) =>
+          mode === "append" ? [...prev, ...deduped] : deduped
+        );
+
+        setAlertsHasMore(!!resp.hasMore);
+        setAlertsPageIndex(nextPage);
+        setAlertsInitialized(true);
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        setAlertsError(e?.message || "Failed to load alerts");
+      } finally {
+        setAlertsLoading(false);
+        setAlertsLoadingMore(false);
+        alertsInFlightRef.current = false;
+      }
+    },
+    [selectedFacilityId, patientId, alertsFilter]
+  );
+
+  const refreshAlerts = useCallback((filterOverride?: PatientAlertsFilterKey) => {
+    alertsSeenRef.current = new Set();
+    setAlertsItems([]);
+    setAlertsPageIndex(1);
+    setAlertsHasMore(true);
+
+    void fetchPatientAlerts(1, "replace", filterOverride);
+  }, [fetchPatientAlerts]);
+
+
+
+  const ensureAlertsLoaded = useCallback(() => {
+    if (!alertsInitialized) {
+      refreshAlerts();
+    }
+  }, [alertsInitialized, refreshAlerts]);
+
+
+
+
+  const fetchADT = useCallback(
+    async (page: number) => {
+      try {
+        setTabLoading('adtRecords', true);
+        setTabError('adtRecords', '');
+
+        const { data, meta } = await fetchAdtRecords(patientDBId, page, PAGE_SIZE, selectedFacilityId);
+
+        setAdtRecords(data);
+        setAdtTotalItems(meta.totalItems);
+        setAdtTotalPages(meta.totalPages);
+        setAdtInitialized(true);
+      } catch (err) {
+        setTabError('adtRecords', 'Failed to load ADT records');
+      } finally {
+        setTabLoading('adtRecords', false);
+      }
+    },
+    [patientDBId, selectedFacilityId]
+  );
+
+  const fetchIncidents = useCallback(async () => {
+    try {
+      setTabLoading('incidents', true);
+      setTabError('incidents', '');
+
+      const bundle = await searchHealthlakeIncident('AdverseEvent', patientId, selectedFacilityId ?? null);
+      const rows = mapAdverseEventBundleToRows(bundle);
+
+      setIncidentRows(rows);
+    } catch (err: any) {
+      setTabError('incidents', err?.message || 'Failed to load incidents');
+    } finally {
+      setTabLoading('incidents', false);
+    }
+  }, [patientId, selectedFacilityId]);
+
+  const fetchCareprofile = useCallback(
+    async (page: number) => {
+      try {
+        setTabLoading('careprofile', true);
+
+        const data = await fetchCareprofileRecords(patientDBId, page, 10, selectedFacilityId);
+        setTabBundle('careprofile', { data });
+
+      } catch (err) {
+        setTabError('careprofile', 'Failed to load care profile records');
+      } finally {
+        setTabLoading('careprofile', false);
+      }
+    },
+    [patientDBId, selectedFacilityId]
+  );
+
+  const handleProgressDetailsError = useCallback((message: string) => {
+    setTabError('progressNotes', message);
+  }, []);
+
+  const fetchProgress = useCallback(
+    async (page: number) => {
+      try {
+        setTabLoading('progressNotes', true);
+        const { data, meta } = await fetchProgressRecords(patientId, page, PAGE_SIZE, selectedFacilityId);
+        const cleanedData = (data ?? []).map((note: any) => ({
+          ...note,
+          progressNoteType: stripHtml(note.progressNoteType),
+        }));
+        setProgressRecords(cleanedData);
+        setProgressTotalItems(meta.totalItems);
+        setProgressPage(meta.pageIndex ?? page);
+        setProgressTotalPages(meta.totalPages);
+        setProgressInitialized(true);
+      } catch (err) {
+        setTabError('progressNotes', 'Failed to load progress notes');
+      } finally {
+        setTabLoading('progressNotes', false);
+      }
+    },
+    [patientId, selectedFacilityId]
+  );
+
+  const fetchPccCareplan = useCallback(async (page: number) => {
+    try {
+      setLoadingTabs(prev => ({ ...prev, [PCC_CAREPLAN_KEY]: true }));
+
+      const { data, meta } = await fetchPccCareplanRecords(patientDBId, page, 10, selectedFacilityId);
+
+      setTabData(prev => ({
+        ...prev,
+        pccCarePlan: {
+          ...(prev.pccCarePlan ?? {}),
+          careplan: { data, meta },
+        },
+      }));
+    } catch (err) {
+      setErrorTabs(prev => ({ ...prev, [PCC_CAREPLAN_KEY]: 'Failed to load care profile records' }));
+    } finally {
+      setLoadingTabs(prev => ({ ...prev, [PCC_CAREPLAN_KEY]: false }));
+    }
+  }, [patientDBId, selectedFacilityId]);
+
+
+  const fetchPccCareplanKardex = useCallback(async (page: number) => {
+    try {
+      setLoadingTabs(prev => ({ ...prev, [PCC_KARDEX_KEY]: true }));
+      setErrorTabs(prev => ({ ...prev, [PCC_KARDEX_KEY]: '' }));
+
+      const { data, meta } = await fetchPccCareplanKardexes(patientDBId, page, 10, selectedFacilityId);
+
+      setTabData(prev => ({
+        ...prev,
+        pccCarePlan: {
+          ...(prev.pccCarePlan ?? {}),
+          kardex: { data, meta },
+        },
+      }));
+    } catch (err: any) {
+      setErrorTabs(prev => ({ ...prev, [PCC_KARDEX_KEY]: err?.message || 'Failed to load careplan kardex records' }));
+    } finally {
+      setLoadingTabs(prev => ({ ...prev, [PCC_KARDEX_KEY]: false }));
+    }
+  }, [patientDBId, selectedFacilityId]);
+
+  const fetchCareEpisodeOfCare = useCallback(
+    async (page: number) => {
+      try {
+        setTabLoading('episodesOfCare', true);
+
+        const { data, meta } = await fetchEpisodeOfCareRecords(patientDBId, page, 10, selectedFacilityId);
+        setTabBundle('episodesOfCare', { data, meta });
+
+      } catch (err) {
+        setTabError('episodesOfCare', 'Failed to load episode of care records');
+      } finally {
+        setTabLoading('episodesOfCare', false);
+      }
+    },
+    [patientDBId, selectedFacilityId]
+  );
+
+  const toId = (ref?: string) => ref?.split('/')?.[1] ?? null;
+
+  const fetchCoverageTab = useCallback(async () => {
+    setTabLoading('coverage', true);
+    setTabError('coverage', '');
+
+    try {
+      // 1) Coverage list
+      const coverageBundle = await fhirRequest({
+        resourceType: 'Coverage',
+        selectedFacilityId,
+        body: `beneficiary=${patientId}&_count=100`,
+      });
+
+      const coverages = (coverageBundle?.entry ?? [])
+        .map((e: any) => e?.resource)
+        .filter((r: any) => r?.resourceType === 'Coverage');
+
+      // 2) Collect refs
+      const patientIds = new Set<string>();
+      const relatedPersonIds = new Set<string>();
+      const orgIds = new Set<string>();
+
+      for (const c of coverages) {
+        const ben = toId(c?.beneficiary?.reference);
+        if (ben) patientIds.add(ben);
+
+        const ph = toId(c?.policyHolder?.reference);
+        if (ph) relatedPersonIds.add(ph);
+
+        for (const p of (c?.payor ?? [])) {
+          const org = toId(p?.reference);
+          if (org) orgIds.add(org);
+        }
+      }
+
+      const fetchByIds = (resourceType: string, ids: Set<string>) => {
+        const list = [...ids];
+        if (list.length === 0) return Promise.resolve({ entry: [] });
+        return fhirRequest({
+          resourceType,
+          selectedFacilityId,
+          body: `_id=${list.join(',')}`,
+        });
+      };
+
+      const [patientsBundle, relatedPersonsBundle, orgsBundle] = await Promise.all([
+        fetchByIds('Patient', patientIds),
+        fetchByIds('RelatedPerson', relatedPersonIds),
+        fetchByIds('Organization', orgIds),
+      ]);
+
+      setTabBundle('coverage', {
+        coverageBundle,
+        patientsBundle,
+        relatedPersonsBundle,
+        orgsBundle,
+      });
+
+    } catch (e: any) {
+      setTabError('coverage', e?.message || 'Failed to load coverage');
+    } finally {
+      setTabLoading('coverage', false);
+    }
+  }, [patientId, selectedFacilityId]);
+
+  const fetchAdlAssessment = useCallback(async () => {
+    try {
+      setLoadingTabs(prev => ({ ...prev, [ADL_ASSESSMENT_KEY]: true }));
+      setErrorTabs(prev => ({ ...prev, [ADL_ASSESSMENT_KEY]: '' }));
+
+      const bundle = await fhirRequest({
+        resourceType: 'Observation',
+        selectedFacilityId,
+        body: `patient=${patientId}&category=adl&_sort=-date`,
+      });
+
+      setTabData(prev => ({
+        ...prev,
+        adl: {
+          ...(prev.adl ?? {}),
+          assessment: bundle,
+        },
+      }));
+    } catch (err: any) {
+      setErrorTabs(prev => ({
+        ...prev,
+        [ADL_ASSESSMENT_KEY]: err?.message || 'Failed to load ADL Assessment',
+      }));
+    } finally {
+      setLoadingTabs(prev => ({ ...prev, [ADL_ASSESSMENT_KEY]: false }));
+    }
+  }, [selectedFacilityId, patientId]);
+
+  const fetchAdlScore = useCallback(async () => {
+    try {
+      setLoadingTabs(prev => ({ ...prev, [ADL_SCORE_KEY]: true }));
+      setErrorTabs(prev => ({ ...prev, [ADL_SCORE_KEY]: '' }));
+
+      const bundle = await fhirRequest({
+        resourceType: 'Observation',
+        selectedFacilityId,
+        body: `patient=${patientId}&code=adl-score&_sort=-date`,
+      });
+
+      setTabData(prev => ({
+        ...prev,
+        adl: {
+          ...(prev.adl ?? {}),
+          score: bundle,
+        },
+      }));
+    } catch (err: any) {
+      setErrorTabs(prev => ({
+        ...prev,
+        [ADL_SCORE_KEY]: err?.message || 'Failed to load ADL Score',
+      }));
+    } finally {
+      setLoadingTabs(prev => ({ ...prev, [ADL_SCORE_KEY]: false }));
+    }
+  }, [selectedFacilityId, patientId]);
+
+  const fetchPatientDevices = useCallback(async () => {
+    setTabLoading("devices", true);
+    setTabError("devices", "");
+
+    // if facility is not ready, don't fire requests
+    if (!selectedFacilityId) {
+      setTabError("devices", "Facility is not selected.");
+      setTabBundle("devices", null);
+      setGatewayInfosByUuid({});
+      setTabLoading("devices", false);
+      return;
+    }
+
+    try {
+      const inventory = await getPateintAssignedGateway({
+        selectedFacilityId,
+        patientId: patientDBId,
+      });
+
+      setTabBundle("devices", inventory);
+
+      const uuids = Array.from(
+        new Set(
+          (inventory?.gateways ?? [])
+            .map((g) => g.gatewayUuid)
+            .filter((v): v is string => !!v)
+        )
+      );
+
+      if (uuids.length === 0) {
+        setGatewayInfosByUuid({});
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        uuids.map((uuid) =>
+          getHwiGatewayInfo({ gatewayUuid: uuid, selectedFacilityId })
+        )
+      );
+
+      const nextMap: Record<string, HwiGatewayInfo> = {};
+      results.forEach((r, idx) => {
+        const uuid = uuids[idx];
+        if (r.status === "fulfilled") nextMap[uuid] = r.value;
+      });
+
+      setGatewayInfosByUuid(nextMap);
+    } catch (e: any) {
+      setTabError("devices", e?.message || "Failed to load assigned devices");
+      setTabBundle("devices", null);
+      setGatewayInfosByUuid({});
+    } finally {
+      setTabLoading("devices", false);
+    }
+  }, [patientDBId, selectedFacilityId]);
+
+
+  const refreshTab = async (tabId: TabId) => {
+    const resourceType = resourceMapByTab[tabId];
+    if (!resourceType) return;
+
+    setTabLoading(tabId, true);
+    setTabError(tabId, '');
+
+    try {
+      const body = buildBody(resourceType);
+      const bundle = await fhirRequest({ resourceType, selectedFacilityId, body });
+      setTabBundle(tabId, bundle);
+    } catch (err: any) {
+      setTabError(tabId, err?.message || 'Failed to load data');
+    } finally {
+      setTabLoading(tabId, false);
+    }
+  };
+
+  const eventTypesPreviousMonths = useMemo(() => {
+    return Object.values(eventTypesPrevByStart).sort(
+      (a, b) => dayjs.utc(b.monthStartUtc).valueOf() - dayjs.utc(a.monthStartUtc).valueOf()
+    );
+  }, [eventTypesPrevByStart]);
+
+  const fetchEventTypes = useCallback(async () => {
+    if (!selectedFacilityId || !patientDBId) return;
+
+    setEventTypesLoading(true);
+    setEventTypesError(null);
+
+    try {
+      const res = await fetchPatientEventLogEventTypes(
+        selectedFacilityId,
+        patientDBId,
+        { monthsBack: 25 }
+      );
+
+      setEventTypesCurrentMonth(res.currentMonth ?? null);
+
+      setEventTypesPrevByStart(() => {
+        const next: Record<string, PatientEventLogEventTypesMonth> = {};
+        for (const m of res.previousMonths ?? []) {
+          if (!m?.monthStartUtc) continue;
+          next[m.monthStartUtc] = m;
+        }
+        return next;
+      });
+    } catch (e: any) {
+      setEventTypesError(e?.message || "Failed to load patient event types.");
+    } finally {
+      setEventTypesLoading(false);
+    }
+  }, [selectedFacilityId, patientDBId]);
+
+
+
+  const refreshVitals = useCallback(
+    async () => {
+      if (!canListObservation) return;
+
+      setVitalLoadingScoped(true);
+      setVitalErrorScoped(null);
+
+      try {
+        const dateGtISO = getDateGtISO(period);
+        const code = VITAL_CODES[selectedVital];
+
+        const bundle = await fetchTotalObservation({
+          patientId,
+          selectedFacilityId,
+          code,
+          dateGtISO,
+        });
+
+        // Always update what the Vitals tab shows
+        setVitalsData(prev => ({
+          ...prev,
+          [selectedVital]: bundle,
+        }));
+
+        // Only upgrade cache extent, never downgrade
+        setLoadedExtentPerVital(prev => {
+          const current = prev[selectedVital] ?? 'today';
+          const nextExtent =
+            extentRank[period] > extentRank[current] ? period : current;
+
+          return {
+            ...prev,
+            [selectedVital]: nextExtent,
+          };
+        });
+
+        // Only update rawVitals / loadedExtent if we *widened* the extent
+        setRawVitals(prev => {
+          const currentExtent = loadedExtentPerVital[selectedVital] ?? 'today';
+          if (extentRank[period] > extentRank[currentExtent]) {
+            return {
+              ...prev,
+              [selectedVital]: bundle,
+            };
+          }
+          return prev;
+        });
+
+        setLoadedExtent(prev => {
+          if (!prev || extentRank[period] > extentRank[prev]) {
+            return period;
+          }
+          return prev;
+        });
+      } catch (err: any) {
+        setVitalErrorScoped(err?.message || 'Failed to fetch vitals');
+      } finally {
+        setVitalLoadingScoped(false);
+      }
+    },
+    [
+      canListObservation,
+      period,
+      patientId,
+      selectedFacilityId,
+      selectedVital,
+      loadedExtentPerVital,
+    ]
+  );
+
+  const refreshOverview = () => {
+    setOverviewInitailized(true);
+    void fetchOveriewVitals();
+    void fetchAiOverview();
+  };
+
+  const refreshAdtRecords = () => {
+    setTabError('adtRecords', '');
+    setAdtRecords([]);
+    setAdtPage(1);
+    setAdtTotalItems(0);
+    void fetchADT(1);
+  }
+
+  const refreshProgressRecords = () => {
+    setTabError('progressNotes', '');
+    setProgressRecords([]);
+    setProgressPage(1);
+    setProgressTotalItems(0);
+    void fetchProgress(1);
+  }
+
+  const loadfaultTab = (tabId: TabId) => {
+    if (tabId === 'overview' && !overviewInitailized) {
+      refreshOverview();
+    }
+    if (tabId === 'summary' && !summaryAnalytics) {
+      void fetchSummaryAnalytics();
+    }
+    if (tabId === 'ai' && !composition48h && !analysisError) {
+      void fetchAiOverview();
+    }
+    if (tabId === 'careTeam' && !canListCareTeam) return;
+    if (tabId === 'carePlan' && (!canReadCarePlan || !canListCarePlan)) return;
+    if (tabId === "devices" && !tabData.devices && !loadingTabs.devices) {
+      void fetchPatientDevices();
+    }
+    if (tabId === "alerts") {
+      ensureAlertsLoaded();
+    }
+    if (tabId === "transcript" && callHistoryRows.length === 0 && !callHistoryLoading) {
+      void fetchCallHistory(1);
+    }
+    if (tabId === 'medications' && !canListMedicationRequest) return;
+
+    if (tabId === 'adtRecords' && !adtInitialized) {
+      refreshAdtRecords();
+    }
+
+    if (tabId === 'nutrition') {
+      setNutritionRefreshToken((t) => t + 1);
+    }
+
+    if (tabId === 'careprofile' && !tabData.careprofile && !loadingTabs.careprofile) {
+      void fetchCareprofile(1);
+    }
+
+    if (tabId === 'pccCarePlan') {
+      const hasCareplan = !!tabData.pccCarePlan?.careplan;
+      if (!hasCareplan && !loadingTabs[PCC_CAREPLAN_KEY]) {
+        void fetchPccCareplan(1);
+      }
+    }
+
+    if (tabId === 'episodesOfCare' && !tabData.episodesOfCare && !loadingTabs.episodesOfCare) {
+      void fetchCareEpisodeOfCare(1);
+    }
+
+    if (tabId === 'incidents') {
+      fetchIncidents();
+    }
+
+    if (tabId === 'progressNotes' && !progressInitialized) {
+      refreshProgressRecords();
+    }
+
+    if (tabId === 'contacts' && emergencyContacts.length === 0 && !loadingTabs.contacts) {
+      void fetchEmergencyContanct(1);
+    }
+
+    if (tabId === 'coverage' && !tabData.coverage && !loadingTabs.coverage) {
+      void fetchCoverageTab();
+    }
+
+    if (tabId === 'adl') {
+      const hasAssessment = !!tabData.adl?.assessment;
+      if (!hasAssessment && !loadingTabs[ADL_ASSESSMENT_KEY]) {
+        void fetchAdlAssessment();
+      }
+    }
+    if (tabId === "activities" && !eventTypesLoading && !eventTypesCurrentMonth && eventTypesPreviousMonths.length === 0) {
+      void fetchEventTypes();
+    }
+
+
+  }
+  const handleTabClick = (tabId: TabId) => {
+    if (tabId === 'overview' && !overviewInitailized) {
+      refreshOverview();
+    }
+    if (tabId === 'summary' && !summaryAnalytics) {
+      void fetchSummaryAnalytics();
+    }
+    if (tabId === 'ai' && !composition48h && !analysisError) {
+      void fetchAiOverview();
+    }
+    if (tabId === 'careTeam' && !canListCareTeam) return;
+    if (tabId === 'carePlan' && (!canReadCarePlan || !canListCarePlan)) return;
+    if (tabId === "devices" && !tabData.devices && !loadingTabs.devices) {
+      void fetchPatientDevices();
+    }
+    if (tabId === "alerts") {
+      ensureAlertsLoaded();
+    }
+    if (tabId === "transcript" && callHistoryRows.length === 0 && !callHistoryLoading) {
+      void fetchCallHistory(1);
+    }
+    if (tabId === 'medications' && !canListMedicationRequest) return;
+
+    if (tabId === 'adtRecords' && !adtInitialized) {
+      refreshAdtRecords();
+    }
+
+    if (tabId === 'nutrition') {
+      setNutritionRefreshToken((t) => t + 1);
+    }
+
+    if (tabId === 'careprofile' && !tabData.careprofile && !loadingTabs.careprofile) {
+      void fetchCareprofile(1);
+    }
+
+    if (tabId === 'pccCarePlan') {
+      const hasCareplan = !!tabData.pccCarePlan?.careplan;
+      if (!hasCareplan && !loadingTabs[PCC_CAREPLAN_KEY]) {
+        void fetchPccCareplan(1);
+      }
+    }
+
+    if (tabId === 'episodesOfCare' && !tabData.episodesOfCare && !loadingTabs.episodesOfCare) {
+      void fetchCareEpisodeOfCare(1);
+    }
+
+    if (tabId === 'incidents') {
+      fetchIncidents();
+    }
+
+    if (tabId === 'progressNotes' && !progressInitialized) {
+      refreshProgressRecords();
+    }
+
+    if (tabId === 'contacts' && emergencyContacts.length === 0 && !loadingTabs.contacts) {
+      void fetchEmergencyContanct(1);
+    }
+
+    if (tabId === 'coverage' && !tabData.coverage && !loadingTabs.coverage) {
+      void fetchCoverageTab();
+    }
+
+    if (tabId === 'adl') {
+      const hasAssessment = !!tabData.adl?.assessment;
+      if (!hasAssessment && !loadingTabs[ADL_ASSESSMENT_KEY]) {
+        void fetchAdlAssessment();
+      }
+    }
+    if (tabId === "activities" && !eventTypesLoading && !eventTypesCurrentMonth && eventTypesPreviousMonths.length === 0) {
+      void fetchEventTypes();
+    }
+    // --- re-click refresh behavior (same as before) ---
+    const isCurrentTab = tabId === selectedTabId;
+
+    if (isCurrentTab) {
+      if (tabId === 'overview') {
+        refreshOverview();
+      } if (tabId === 'summary') {
+        void fetchSummaryAnalytics();
+      } else if (tabId === 'ai') {
+        void fetchAiOverview();
+      } else if (tabId === 'vitals') {
+        void refreshVitals();
+      } else if (tabId === "devices") {
+        void fetchPatientDevices();
+      } if (tabId === "transcript") {
+        void fetchCallHistory(1);
+      }
+      else if (tabId === "alerts") {
+        refreshAlerts();
+      }
+      else if (tabId === 'adtRecords') {
+        refreshAdtRecords();
+      } else if (tabId === 'nutrition') {
+        setNutritionRefreshToken((t) => t + 1);
+      } else if (tabId === 'careprofile') {
+        void fetchCareprofile(1);
+      } else if (tabId === 'pccCarePlan') {
+        if (pccSubTab === 0) {
+          void fetchPccCareplan(1);
+        } else {
+          void fetchPccCareplanKardex(1);
+        }
+      } else if (tabId === 'episodesOfCare') {
+        void fetchCareEpisodeOfCare(1);
+      } else if (tabId === 'incidents') {
+        void fetchIncidents();
+      } else if (tabId === 'progressNotes') {
+        refreshProgressRecords();
+      } else if (tabId === 'contacts') {
+        void fetchEmergencyContanct(1);
+      } else if (tabId === "activities") {
+        void fetchEventTypes();
+      }
+      else if (tabId === 'coverage') {
+        void fetchCoverageTab();
+      }
+      else if (tabId === 'adl') {
+        if (adlSubTab === 0) void fetchAdlAssessment();
+        else void fetchAdlScore();
+      } else {
+        // generic FHIR-backed tabs
+        void refreshTab(tabId);
+      }
+    }
+  };
+
+  const prevFacilityIdRef = useRef<string | null>(selectedFacilityId);
+  //handle overview data loading
+  useEffect(() => {
+    if (prevFacilityIdRef.current && prevFacilityIdRef.current !== selectedFacilityId) {
+      prevFacilityIdRef.current = selectedFacilityId;
+      return;
+    }
+    prevFacilityIdRef.current = selectedFacilityId;
+
+    void loadfaultTab(defaultTab);
+    void fetchEmergencyContanct(1);
+  }, [patientId, baseurl, canListObservation, fetchAiOverview, fetchOveriewVitals, fetchEmergencyContanct]);
+
+
+  //handle permissson
+  useEffect(() => {
+    const resourceType = resourceMapByTab[selectedTabId];
+    if (!resourceType) return;
+
+    const hasPermission = (rt: string) => {
+      if (rt === 'Observation') return canListObservation;
+      if (rt === 'CarePlan') return canReadCarePlan;
+      if (rt === 'MedicationRequest') return canListMedicationRequest;
+      if (rt === 'CareTeam') return canListCareTeam;
+      return true;
+    };
+
+    if (!hasPermission(resourceType)) {
+      setTabData(prev => (prev[selectedTabId] ? prev : { ...prev, [selectedTabId]: EMPTY_BUNDLE }));
+      return;
+    }
+
+    if (tabData[selectedTabId] || loadingTabs[selectedTabId]) return;
+
+    setLoadingTabs(prev => ({ ...prev, [selectedTabId]: true }));
+
+    (async () => {
+      try {
+        const body = buildBody(resourceType);
+        const bundle = await fhirRequest({ resourceType, selectedFacilityId, body });
+        setTabData(prev => ({ ...prev, [selectedTabId]: bundle }));
+      } catch (err: any) {
+        setErrorTabs(prev => ({ ...prev, [selectedTabId]: err.message || 'Failed to load data' }));
+      } finally {
+        setLoadingTabs(prev => ({ ...prev, [selectedTabId]: false }));
+      }
+    })();
+  }, [
+    selectedTabId,
+    patientId,
+    selectedFacilityId,
+    canListObservation,
+    canReadCarePlan,
+    canListMedicationRequest,
+    canListCareTeam,
+    tabData,
+    // loadingTabs,
+  ]);
+
+  //Update latest vitals in clinic summary according to clinic
+  const upsertLatestVitalInSummaryAnalytics = useCallback(
+    (reading: VitalReading) => {
+      setSummaryAnalytics(prev => {
+        if (!prev) return prev;
+
+        let foundLatestMeasure = false;
+
+        const nextResults = prev.results.map((measure) => {
+          if (measure.measure !== "latestVitalsByType") return measure;
+
+          foundLatestMeasure = true;
+
+          const oldData = Array.isArray(measure.data) ? measure.data : [];
+
+          // Remove any old reading with the same measurementKey OR same vitalTypeCode.
+          const filtered = oldData.filter(
+            (x) =>
+              !(
+                x.measurementKey === reading.measurementKey ||
+                x.vitalTypeCode === reading.vitalTypeCode
+              )
+          );
+
+          return {
+            ...measure,
+            total: filtered.length + 1,
+            data: [reading, ...filtered],
+          };
+        });
+
+        if (!foundLatestMeasure) {
+          nextResults.push({
+            measure: "latestVitalsByType",
+            type: "LATEST",
+            total: 1,
+            data: [reading],
+          });
+        }
+
+        return {
+          ...prev,
+          size: nextResults.length,
+          results: nextResults,
+        };
+      });
+    },
+    []
+  );
+
+  //handle signal R
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      if (!canListObservation) return;
+      if (connectionRef.current) {
+        connectionRef.current.off('ReceiveVitalsUpdate');
+        try { await connectionRef.current.invoke('UnsubscribeFromPatient', patientId); } catch { }
+        try { await connectionRef.current.stop(); } catch { }
+      }
+      const conn = new signalR.HubConnectionBuilder()
+        .withUrl(`${baseurl}/vitalshub?patientId=${patientId}`, {
+          transport: signalR.HttpTransportType.WebSockets,
+          withCredentials: true,
+        })
+        .withAutomaticReconnect()
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+      conn.on('ReceiveVitalsUpdate', (data: any) => {
+        if (!isMounted) return;
+
+        const { timestamp: iso, measurements } = data;
+
+        const push = (
+          key: string,
+          resource: any,
+          readings?: VitalReading | VitalReading[]
+        ) => {
+          setVitalsData(prev => ({
+            ...prev,
+            [key]: {
+              entry: [...(prev[key]?.entry ?? []), { resource }],
+            },
+          }));
+
+          if (readings) {
+            const list = Array.isArray(readings) ? readings : [readings];
+            list.forEach(upsertLatestVitalInSummaryAnalytics);
+          }
+        };
+
+        if (measurements?.oxygenSaturation?.value != null) {
+          const value = measurements.oxygenSaturation.value;
+
+          push(
+            'spo2',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: '%' },
+            },
+            {
+              vitalTypeCode: '59408-5',
+              eventId: data?.eventId ?? `${patientId}-spo2-${iso}`,
+              measurementKey: 'oxygenSaturation',
+              valueNum: value,
+              unit: '%',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.bloodGlucose?.value != null) {
+          const value = measurements.bloodGlucose.value;
+
+          push(
+            'bloodGlucose',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: 'mg/dL' },
+            },
+            {
+              vitalTypeCode: '2339-0',
+              eventId: data?.eventId ?? `${patientId}-bloodGlucose-${iso}`,
+              measurementKey: 'bloodGlucose',
+              valueNum: value,
+              unit: 'mg/dL',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.heartRate?.value != null) {
+          const value = measurements.heartRate.value;
+
+          push(
+            'heartRate',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: 'bpm' },
+            },
+            {
+              vitalTypeCode: '8867-4',
+              eventId: data?.eventId ?? `${patientId}-heartRate-${iso}`,
+              measurementKey: 'heartRate',
+              valueNum: value,
+              unit: 'bpm',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.bodyWeight?.value != null) {
+          const value = measurements.bodyWeight.value;
+
+          push(
+            'bodyWeight',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: 'lbs' },
+            },
+            {
+              vitalTypeCode: '29463-7',
+              eventId: data?.eventId ?? `${patientId}-bodyWeight-${iso}`,
+              measurementKey: 'bodyWeight',
+              valueNum: value,
+              unit: 'lbs',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.bodyTemperature?.value != null) {
+          const value = measurements.bodyTemperature.value;
+
+          push(
+            'bodyTemperature',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: '°F' },
+            },
+            {
+              vitalTypeCode: '8310-5',
+              eventId: data?.eventId ?? `${patientId}-bodyTemperature-${iso}`,
+              measurementKey: 'bodyTemperature',
+              valueNum: value,
+              unit: '°F',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.painLevel?.value != null) {
+          const value = measurements.painLevel.value;
+
+          push(
+            'painLevel',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: '' },
+            },
+            {
+              vitalTypeCode: '72514-3',
+              eventId: data?.eventId ?? `${patientId}-painLevel-${iso}`,
+              measurementKey: 'painLevel',
+              valueNum: value,
+              unit: '',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        if (measurements?.respirations?.value != null) {
+          const value = measurements.respirations.value;
+
+          push(
+            'respiration',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              valueQuantity: { value, unit: 'breaths/min' },
+            },
+            {
+              vitalTypeCode: '9279-1',
+              eventId: data?.eventId ?? `${patientId}-respiration-${iso}`,
+              measurementKey: 'respiration',
+              valueNum: value,
+              unit: 'breaths/min',
+              measuredAt: iso,
+            }
+          );
+        }
+
+        const sys = measurements?.systolic?.value;
+        const dia = measurements?.diastolic?.value;
+
+        if (sys != null && dia != null) {
+          push(
+            'bloodPressure',
+            {
+              resourceType: 'Observation',
+              effectiveDateTime: iso,
+              component: [
+                {
+                  code: { coding: [{ code: '8480-6' }] },
+                  valueQuantity: { value: sys, unit: 'mmHg' },
+                },
+                {
+                  code: { coding: [{ code: '8462-4' }] },
+                  valueQuantity: { value: dia, unit: 'mmHg' },
+                },
+              ],
+            },
+            [
+              {
+                vitalTypeCode: '8480-6',
+                eventId: data?.eventId ?? `${patientId}-systolic-${iso}`,
+                measurementKey: 'systolic',
+                valueNum: sys,
+                unit: 'mmHg',
+                measuredAt: iso,
+              },
+              {
+                vitalTypeCode: '8462-4',
+                eventId: data?.eventId ?? `${patientId}-diastolic-${iso}`,
+                measurementKey: 'diastolic',
+                valueNum: dia,
+                unit: 'mmHg',
+                measuredAt: iso,
+              },
+            ]
+          );
+        }
+      });
+      try {
+        await conn.start();
+        await conn.invoke('SubscribeToPatient', patientId);
+        connectionRef.current = conn;
+      } catch (e) {
+        console.error('VitalsHub connection error:', e);
+      }
+    })();
+    return () => {
+      isMounted = false;
+      connectionRef.current?.stop().catch(() => { });
+    };
+
+  }, [patientId, baseurl, canListObservation, upsertLatestVitalInSummaryAnalytics]);
+
+  //handle period channge
+  useEffect(() => {
+    if (!canListObservation) {
+      setVitalLoadingScoped(false);
+      setVitalErrorScoped(null);
+      return;
+    }
+
+    const already = loadedExtentPerVital[selectedVital] || 'today';
+    if (extentRank[period] <= extentRank[already]) {
+      setVitalLoadingScoped(false);
+      setVitalErrorScoped(null);
+      return;
+    }
+
+    const source = axios.CancelToken.source();
+    let mounted = true;
+
+    (async () => {
+      try {
+        setVitalErrorScoped(null);
+        setVitalLoadingScoped(true);
+
+        const dateGtISO = getDateGtISO(period);
+        const code = VITAL_CODES[selectedVital];
+
+        const bundle = await fetchTotalObservation({
+          patientId,
+          selectedFacilityId,
+          code,
+          dateGtISO,
+          cancelToken: source.token,
+        });
+
+        if (!mounted) return;
+
+        setRawVitals(prev => ({ ...prev, [selectedVital]: bundle }));
+        setVitalsData(prev => ({ ...prev, [selectedVital]: bundle }));
+
+        setLoadedExtentPerVital(prev => ({
+          ...prev,
+          [selectedVital]: period,
+        }));
+      } catch (err: any) {
+        if (!mounted) return;
+        setVitalErrorScoped(err?.message || 'Failed to fetch selected vital.');
+      } finally {
+        if (mounted) setVitalLoadingScoped(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      source.cancel('unmounted');
+    };
+  }, [
+    period,
+    selectedVital,
+    patientId,
+    selectedFacilityId,
+    canListObservation,
+    loadedExtentPerVital,
+  ]);
+
+
+  // ---------------- CarePlan post-edit refresh flow ----------------
+  type CarePlanFlowState = 'idle' | 'waiting' | 'fetching' | 'error';
+  const [carePlanFlow, setCarePlanFlow] = useState<{ state: CarePlanFlowState; message: string }>({
+    state: 'idle',
+    message: '',
+  });
+  const carePlanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const carePlanRetryCountRef = useRef(0);
+
+  const clearCarePlanTimer = () => {
+    if (carePlanTimerRef.current) {
+      clearTimeout(carePlanTimerRef.current);
+      carePlanTimerRef.current = null;
+    }
+  };
+
+  const fetchCarePlanOnce = async () => {
+    try {
+      setCarePlanFlow({ state: 'fetching', message: 'Fetching updated care plan…' });
+
+      const body = buildBody('CarePlan');
+      const bundle = await fhirRequest({ resourceType: 'CarePlan', selectedFacilityId, body });
+      const hasEntries = Array.isArray(bundle?.entry) && bundle.entry.length > 0;
+
+      setTabBundle('carePlan', bundle);
+
+      if (hasEntries) {
+        setCarePlanFlow({ state: 'idle', message: '' });
+        carePlanRetryCountRef.current = 0;
+        clearCarePlanTimer();
+      } else {
+        if (carePlanRetryCountRef.current < 1) {
+          carePlanRetryCountRef.current += 1;
+          setCarePlanFlow({
+            state: 'waiting',
+            message: 'Fetching care plan. This may take a few moments…',
+          });
+          clearCarePlanTimer();
+          carePlanTimerRef.current = setTimeout(fetchCarePlanOnce, 10000);
+        } else {
+          setCarePlanFlow({
+            state: 'error',
+            message: 'Careplan being updated. Please try refreshing again',
+          });
+          clearCarePlanTimer();
+        }
+      }
+    } catch (e: any) {
+      setCarePlanFlow({
+        state: 'error',
+        message: e?.message || 'Something went wrong fetching care plan.',
+      });
+      clearCarePlanTimer();
+    }
+  };
+
+  const startCarePlanRefreshFlow = () => {
+    carePlanRetryCountRef.current = 0;
+    setCarePlanFlow({ state: 'waiting', message: 'Fetching updated care plan…' });
+    clearCarePlanTimer();
+    carePlanTimerRef.current = setTimeout(fetchCarePlanOnce, 5000);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearCarePlanTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    clearCarePlanTimer();
+    carePlanRetryCountRef.current = 0;
+    setCarePlanFlow({ state: 'idle', message: '' });
+  }, [patientId]);
+
+  const dialTo = React.useMemo(() => {
+    const raw = (phone || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("+")) return raw;
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+    return raw;
+  }, [phone]);
+
+  // -----------------------------------------------------------------
+  const sendPulse = useCallback(
+    async (activityAtIso: string) => {
+      if (!selectedFacilityId) return;
+      if (!currentEventLogId) return;
+
+      await pushPulseActivity(selectedFacilityId, currentEventLogId, activityAtIso);
+    },
+    [selectedFacilityId, currentEventLogId]
+  );
+
+  useActivityPulse({
+    enabled: picklist?.tenant === "clinic" && !!selectedFacilityId && !!currentEventLogId,
+    selectedFacilityId: selectedFacilityId ?? "",
+    eventLogId: currentEventLogId,
+    sendPulse,
+    intervalMs: 60_000,
+    activityThrottleMs: 100,
+    target: window
+  });
+
+
+
+  const formattedPhone = formatPhone(phone);
+  return (
+    <Grid container spacing={2} sx={{ flex: 1, overflow: 'hidden' }}>
+      <Grid size={{ xs: 12, lg: 3 }}>
+        <Box
+          sx={{
+            border: 1,
+            borderColor: 'divider',
+            p: 2,
+            overflowY: 'auto',
+            borderRadius: 5,
+            pt: 3,
+            height: '100%',
+          }}
+        >
+          {/* <Box sx={{ display: 'flex', width: '100%', justifyContent: 'flex-end' }}>
+            <IconButton
+              aria-label="More actions"
+              onClick={handleMenuOpen}
+            >
+              <MoreVertIcon />
+            </IconButton>
+          </Box> */}
+          {/* Menu */}
+
+          <Stack spacing={1} alignItems="center">
+            <Avatar
+              alt={name}
+              src={!avatarFailed ? patient.photo?.dataUrl : undefined}
+              imgProps={{
+                onError: () => setAvatarFailed(true),
+                referrerPolicy: 'no-referrer',
+              }}
+              sx={{ width: 82, height: 82, fontSize: 34, bgcolor: 'rgb(0, 114, 214)' }}
+            >
+              {initials || '?'}
+            </Avatar>
+
+            <Typography variant="h6">
+              {name}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" >
+              {age}Y, {gender.charAt(0).toUpperCase()}{gender.slice(1, gender.length)} | DOB: {dayjs(dob).format('MM/DD/YYYY')}
+            </Typography>
+
+            {patient.billingPractioner?.fullName && (
+              <Stack direction="row" spacing={1} alignItems="center" pb={1}>
+                <Typography variant="body2" color="text.secondary">Billing Practioner:</Typography>
+                <Typography variant="body2" >{patient.billingPractioner?.fullName}</Typography>
+              </Stack>
+            )}
+            {(() => {
+              const normalizePart = (value?: string | null) => {
+                if (!value) return null;
+                const trimmed = value.trim();
+                if (!trimmed) return null;
+                if (trimmed.toUpperCase() === 'N/A') return null;
+                return trimmed;
+              };
+              const parts = [
+                normalizePart(floor),
+                normalizePart(unit),
+                normalizePart(room),
+                normalizePart(bed),
+              ].filter(Boolean) as string[];
+
+              if (parts.length === 0) return null;
+
+              return (
+                <Stack direction="row" spacing={1} alignItems="center" >
+                  {/* <Typography variant="body2" color="text.secondary">
+                    Location:
+                  </Typography> */}
+
+                  <Tooltip
+                    title="Location is shown in order: Floor Unit Room Bed"
+                    arrow
+                  >
+                    <IconButton
+                      size="small"
+                      sx={{ ml: 0.5, p: 0.25 }}
+                      aria-label="Location info"
+                    >
+                      <CorporateFare fontSize='small' />
+                    </IconButton>
+                  </Tooltip>
+                  <Typography variant="body2" color="text.secondary" pr={2}>{parts.join(' ')}</Typography>
+                </Stack>
+              );
+            })()}
+          </Stack>
+          <Stack direction="column" px={2} mt={2}>
+            <Stack direction="row" spacing={1} alignItems="center" pb={1}>
+              <Typography variant="body2" color="text.secondary">MRN:</Typography>
+              <Typography variant="body2" >{mrn}</Typography>
+            </Stack>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', mb: 1, gap: 1, flexDirection: 'column' }} >
+              {acuity.code && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
+                  <Typography variant="body2" color="text.secondary">Acuity:</Typography>
+                  <StatusChip
+                    label={acuityName(acuity.code)}
+                    variant={acuityVariantMap[(acuity.code as 'RED' | 'YELLOW' | 'GREEN')]}
+                  />
+                </Box>
+              )}
+
+              {fallPrediction &&
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
+                  <Typography variant="body2" color="text.secondary">Fall Prediction:</Typography>
+                  <Box  >
+                    <StatusChip
+                      label={fallPrediction}
+                      variant={fallPredictionVariantMap[fallPrediction]}
+                    />
+                  </Box>
+                </Box>
+              }
+
+              {patient.enrolledIn &&
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
+                  <Typography variant="body2" color="text.secondary">Care Program:</Typography>
+                  <Box  >
+                    <StatusChip
+                      label={patient.enrolledIn}
+                      variant={'default'}
+                    />
+                  </Box>
+                </Box>
+              }
+            </Box>
+          </Stack>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Stack spacing={2} ml={2} my={3}>
+            {/* <Stack direction="row" spacing={2.3} alignItems="center">
+              <LanguageIcon fontSize="small" />
+              <Typography>{languages}</Typography>
+            </Stack> */}
+            <Stack direction="row" spacing={1.9} alignItems="center"
+              sx={{
+                overflowWrap: 'anywhere',
+                whiteSpace: 'normal',
+              }}>
+              <EmailOutlined />
+              <Typography>{email}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <CallOutlined />
+              <Typography>{formattedPhone ? formattedPhone : 'N/A'}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <LocationOnOutlined />
+              <Typography>{address}</Typography>
+            </Stack>
+          </Stack>
+          <Divider sx={{ my: 2 }} />
+          {picklist?.tenant === "clinic" ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" fontWeight={'bold'}>Patient Documents</Typography>
+              {/* <Button variant='text' sx={{ textTransform: 'none' }} onClick={() => setSelectedTabId('contacts')}>
+                  View All
+                </Button> */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '20vh' }}>
+                <Typography variant='body2' fontWeight={550} color='text.secondary'>
+                  No Documents Found
+                </Typography>
+              </Box >
+            </Box>
+            // <PatientPdfListCard />
+          ) : (
+            <Box >
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                // px={2}
+                alignItems="center"
+              >
+                <Typography variant="subtitle1" fontWeight={'bold'}>Patient contacts</Typography>
+                <Button variant='text' sx={{ textTransform: 'none' }} onClick={() => setSelectedTabId('contacts')}>
+                  View All
+                </Button>
+              </Stack>
+
+              {/* Loading state */}
+              {loadingTabs['contacts'] && (
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 3,
+                  }}
+                >
+                  <Skeleton variant="text" width={'100%'} height={200} />
+                  <Skeleton variant="text" width={'100%'} height={200} />
+                </Box>
+              )}
+
+              {/* Error state */}
+              {!loadingTabs['contacts'] && errorTabs['contacts'] && (
+                <Box sx={{ px: 2, pt: 2 }}>
+                  <Alert
+                    severity="error"
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => fetchEmergencyContanct(1)}
+                      >
+                        Retry
+                      </Button>
+                    }
+                  >
+                    {errorTabs['contacts']}
+                  </Alert>
+                </Box>
+              )}
+
+              {/* Empty state */}
+              {!loadingTabs['contacts'] && !errorTabs['contacts'] && emergencyContacts.length === 0 && (
+                <Typography
+                  variant="body1"
+                  fontWeight="bold"
+                  color="rgba(142, 142, 142, 0.62)"
+                  textAlign="center"
+                  minHeight="5vh"
+                  mt={5}
+                >
+                  No emergency contact found
+                </Typography>
+              )}
+
+              {/* Contact list */}
+              {!loadingTabs['contacts'] && !errorTabs['contacts'] && emergencyContacts.length > 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mt: 1 }}>
+                  {emergencyContacts.slice(0, 2).map(contact => {
+                    const fullName = [contact.firstName, contact.lastName]
+                      .filter(Boolean)
+                      .join(' ') || 'Unknown';
+                    const typeLines = formatContactTypes(contact.types);
+
+                    return (
+                      <Box
+                        key={contact.id}
+                        sx={{
+                          p: 2,
+                          mt: 1,
+                          mb: 1,
+                          // bgcolor: 'rgba(244, 244, 244, 0.63)',
+                          borderRadius: 2,
+                          border: 0.5,
+                          borderColor: 'divider'
+
+                        }}
+                      >
+                        <Stack spacing={0.5}>
+                          <Stack spacing={0.5} direction={'row'} alignItems={'center'}>
+                            <Person sx={{ fontSize: 15 }} />
+                            <Typography variant="body2" fontWeight={600}>
+                              {fullName}
+                            </Typography>
+                            {contact.relationship && (
+                              <Typography variant="caption" color="text.secondary">
+                                {`(${contact.relationship})`}
+                              </Typography>
+                            )}
+                          </Stack>
+                          {/* <Divider /> */}
+
+                          {typeLines.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2.2 }}>
+                              {typeLines.join(' • ')}
+                            </Typography>
+                          )}
+                          <Box>
+                            {renderPhoneRow('Home', contact.homePhone)}
+                            {renderPhoneRow('Cell', contact.cellPhone)}
+                            {renderPhoneRow('Office', contact.officePhone)}
+
+                            {contact.email && (
+                              <Stack direction="row" spacing={0.5} alignItems={{ xs: 'flex-start', xl: 'center' }}>
+                                <EmailOutlined sx={{ fontSize: 15 }} />
+                                <Typography variant="caption" color='text.secondary'>Email: </Typography>
+                                <Typography variant="body1"
+                                  sx={{
+                                    overflowWrap: 'anywhere',
+                                    whiteSpace: 'normal',
+                                  }}>
+                                  {contact.email}
+                                </Typography>
+                              </Stack>
+                            )}
+                          </Box>
+
+                          {(() => {
+                            const addressText = buildContactAddress(contact);
+                            if (!addressText) return null;
+
+                            return (
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="flex-start"
+                                sx={{
+                                  overflowWrap: 'anywhere',
+                                  whiteSpace: 'normal',
+                                }}
+                              >
+                                <LocationOnOutlined sx={{ fontSize: 15 }} />
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    whiteSpace: 'pre-line',
+                                  }}
+                                >
+                                  {addressText}
+                                </Typography>
+                              </Stack>
+                            );
+                          })()}
+
+                        </Stack>
+
+                        {/* <Divider sx={{ py: 1 }} /> */}
+                      </Box>
+
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 9 }}>
+
+        <>
+          <Box
+            ref={activityContainerRef}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              width: "100%",
+            }}
+          >
+            {/* LEFT AREA (takes remaining space) */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {picklist?.tenant === "clinic" && unresolvedAlertsCount > 0 && (
+                <Alert
+                  severity="error"
+                  sx={{ borderRadius: 2.4 }}
+                  action={
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 500,
+                        color: "error.main",
+                        borderColor: "error.main",
+                        mx: 2,
+                        bgcolor: "#ffffff",
+                      }}
+                      onClick={() => {
+                        setSelectedTabId("alerts");
+                        handleTabClick("alerts");
+                      }}
+                    >
+                      View alerts
+                    </Button>
+                  }
+                >
+                  {name} has <b>{unresolvedAlertsCount}</b> unresolved alerts. Please click on view alerts to review them.
+                </Alert>
+              )}
+            </Box>
+
+            {/* RIGHT AREA (always pinned right) */}
+            {picklist?.tenant === "clinic" && (
+              <Box sx={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", px: 3, gap: 2 }}>
+
+                <Button
+                  variant="contained"
+                  startIcon={<CallIcon />}
+                  onClick={() =>
+                    openCall({
+                      toNumberE164: dialTo,
+                      patientId: patientDBId,
+                      displayNumber: formattedPhone ?? phone,
+                      selectedFacilityId,
+                      title: name,
+                    })
+                  }
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: "none",
+                    whiteSpace: "nowrap",
+                    minWidth: "max-content",
+                    py: 1.2,
+                  }}
+                  disabled={!dialTo}
+                >
+                  {`Call ${(patient?.firstName ?? "").trim()} ${(patient?.lastName ?? "").trim()}`.trim()}
+                </Button>
+              </Box>
+
+            )}
+          </Box>
+
+          <Box sx={{ pt: 2 }}>
+            {analysisError && (
+              <Box sx={{ mx: 1, mb: 1 }}>
+                <Alert severity="warning">{analysisError}</Alert>
+              </Box>
+            )}
+
+
+            <Tabs
+              value={selectedTabId}
+              onChange={handleDetailTab}
+              variant="scrollable"
+              TabIndicatorProps={{
+                sx: { top: 0, bottom: 'unset', height: 2, bgcolor: '#1976d2', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+              }}
+              sx={{
+                px: 1,
+                '& .MuiTab-root': {
+                  textTransform: 'none', minHeight: 'auto', px: 2, py: 1.2, mx: 0.5,
+                  fontSize: 13, fontWeight: 500, color: '#555',
+                  '& svg': { fontSize: 18, mr: 1, color: '#888' },
+                },
+                '& .Mui-selected': {
+                  backgroundColor: '#e3f2fd', color: '#1976d2',
+                  '& svg': { color: '#1976d2' },
+                },
+              }}
+            >
+              {visibleTabs.map((tab, _idx) => (
+                <Tab
+                  key={tab.id}
+                  value={tab.id}
+                  label={<Stack direction="row" alignItems="center" spacing={1}>{tab.icon}{tab.label}</Stack>}
+                  onClick={() => handleTabClick(tab.id)}
+                  disabled={!!loadingTabs[tab.id]}
+                />
+              ))}
+            </Tabs>
+            <Divider sx={{ my: -1.4, mb: 1, mx: { xs: 3, lg: 1 } }} />
+
+            {visibleTabs.map((tab) => (
+              <TabPanel key={tab.id} value={selectedTabId} tabId={tab.id}>
+                <Suspense
+                  key={tab.id}
+                  fallback={renderSkeletonForTab(tab.id)}
+                >
+                  {(() => {
+                    const tabId = tab.id;
+
+                    // ---------- Overview ----------
+                    if (tabId === 'overview') {
+                      if (!canListObservation) {
+                        return (
+                          <>
+                            <Box sx={{ mb: 2 }}>
+                              <Alert severity="warning">
+                                Access Restricted: You don’t have permission to view {resourceDisplayName['Observation']}.
+                              </Alert>
+                            </Box>
+                            <Box
+                              sx={{
+                                py: 2,
+                                px: 2,
+                                border: 1,
+                                borderColor: 'divider',
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                minHeight: '40vh',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Typography color="text.secondary">No observations to show.</Typography>
+                            </Box>
+                          </>
+                        );
+                      }
+
+                      if (vitalsLoading) return renderSkeletonForTab(tabId);
+                      if (vitalsError) return <Alert severity="error">{vitalsError}</Alert>;
+
+                      return (
+                        <Overview
+                          vitalsData={vitalsData}
+                          compliance={compliance}
+                          composition48h={composition48h}
+                          canListObservation={canListObservation}
+                          setDetailTab={setSelectedTabId}
+                        />
+                      );
+                    }
+
+                    // ---------- Vitals ----------
+                    if (tabId === 'vitals') {
+                      if (!canListObservation) {
+                        return (
+                          <>
+                            <Box sx={{ mb: 2 }}>
+                              <Alert severity="warning">
+                                Access Restricted: You don’t have permission to view {resourceDisplayName['Observation']}.
+                              </Alert>
+                            </Box>
+
+                            <Box
+                              sx={{
+                                py: 2,
+                                px: 2,
+                                border: 1,
+                                borderColor: 'divider',
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                minHeight: '40vh',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Typography color="text.secondary">No observations to show.</Typography>
+                            </Box>
+                          </>
+                        );
+                      }
+
+                      if (vitalsLoading) return renderSkeletonForTab(tabId);
+                      if (vitalsError) return <Alert severity="error">{vitalsError}</Alert>;
+
+                      return (
+                        <Vitals
+                          vitalsData={vitalsData as any}
+                          period={period}
+                          onPeriodChange={setPeriod}
+                          selectedVital={selectedVital}
+                          onSelectedVitalChange={setSelectedVital}
+                          loadingSelected={vitalLoadingScoped}
+                          errorSelected={vitalErrorScoped}
+                        />
+                      );
+                    }
+
+                    // ---------- Care Plan (custom flow) ----------
+                    if (tabId === 'carePlan') {
+                      if (!canReadCarePlan) {
+                        return (
+                          <>
+                            <Box sx={{ mb: 2 }}>
+                              <Alert severity="warning">
+                                Access Restricted: You don’t have permission to view {resourceDisplayName['CarePlan']}.
+                              </Alert>
+                            </Box>
+                            <Box
+                              sx={{
+                                py: 2,
+                                px: 2,
+                                border: 1,
+                                borderColor: 'divider',
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                minHeight: '40vh',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Typography color="text.secondary">
+                                No {resourceDisplayName['CarePlan']} to show.
+                              </Typography>
+                            </Box>
+                          </>
+                        );
+                      }
+
+                      if (carePlanFlow.state === 'waiting' || carePlanFlow.state === 'fetching') {
+                        return (
+                          <Box
+                            display="flex"
+                            flexDirection="column"
+                            alignItems="center"
+                            justifyContent="center"
+                            minHeight="50vh"
+                            gap={2}
+                          >
+                            <CircularProgress />
+                            <Typography>{carePlanFlow.message}</Typography>
+                          </Box>
+                        );
+                      }
+
+                      if (carePlanFlow.state === 'error') {
+                        return (
+                          <Alert
+                            severity="error"
+                            action={
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={startCarePlanRefreshFlow}
+                                sx={{ border: 1, borderColor: 'error.main' }}
+                              >
+                                Refresh
+                              </Button>
+                            }
+                          >
+                            {carePlanFlow.message}
+                          </Alert>
+                        );
+                      }
+
+                      const bundle = tabData[tabId];
+
+                      if (loadingTabs[tabId]) return renderSkeletonForTab(tabId);
+                      if (errorTabs[tabId]) return <Alert severity="error">{errorTabs[tabId]}</Alert>;
+
+                      return bundle ? (
+                        <>
+                          {!canEditCarePlan && (
+                            <Box sx={{ mb: 2 }}>
+                              <Alert severity="warning">
+                                Access Restricted: You don’t have permission to Edit {resourceDisplayName['CarePlan']}.
+                              </Alert>
+                            </Box>
+                          )}
+                          <CarePlans
+                            patientId={patientId}
+                            bundle={bundle}
+                            onEditSuccess={() => {
+                              startCarePlanRefreshFlow();
+                              void logCarePlanUpdateEvent();
+                            }}
+                            setCanEditCarePlan={setCanEditCarePlan}
+                          />
+                        </>
+                      ) : null;
+                    }
+
+                    // ---------- Generic tab loading/error ----------
+                    if (loadingTabs[tabId]) return renderSkeletonForTab(tabId);
+                    if (errorTabs[tabId]) return <Alert severity="error">{errorTabs[tabId]}</Alert>;
+
+                    const bundle = tabData[tabId];
+
+                    switch (tabId) {
+                      case "summary":
+                        return (
+                          <PatientGoalsSummary
+                            analytics={summaryAnalytics}
+                            loading={summaryAnalyticsLoading}
+                            error={summaryAnalyticsError}
+                            tasksData={patientTasks}
+                            tasksLoading={patientTasksLoading}
+                            tasksError={patientTasksError}
+                            canListObservation={canListObservation}
+                            onViewMoreVitals={() => {
+                              setSelectedTabId("vitals");
+                              handleTabClick("vitals");
+                            }}
+                          />
+                        );
+
+                      case 'ai':
+                        if (analysisError) {
+                          return (
+                            <Alert
+                              severity="error"
+                              action={
+                                <Button color="inherit" size="small" onClick={() => void fetchAiOverview()}>
+                                  Retry
+                                </Button>
+                              }
+                            >
+                              {analysisError}
+                            </Alert>
+                          );
+                        }
+
+                        return (
+                          <OverviewSection
+                            careTeam={[]}
+                            compliance={compliance}
+                            composition48h={composition48h}
+                          />
+                        );
+
+                      case 'devices':
+                        const inventory = tabData.devices as PatientInventoryResponse | null;
+                        const gateways = inventory?.gateways ?? [];
+                        const ungrouped = inventory?.ungroupedDevices ?? [];
+
+                        return <PatientDevices gateways={gateways} ungrouped={ungrouped} gatewayInfosByUuid={gatewayInfosByUuid} />;;
+                      case 'careTeam':
+                        return bundle ? <CareTeam bundle={bundle} /> : null;
+
+                      case "transcript":
+                        return (
+                          <PatientCallHistory
+                            patientName={name}
+                            response={{
+                              data: callHistoryRows,
+                              meta: callHistoryMeta,
+                            }}
+                            loading={callHistoryLoading}
+                            error={callHistoryError}
+                            onRetry={() => void fetchCallHistory(callHistoryMeta.pageIndex ?? 1)}
+                            onPageChange={(p) => void fetchCallHistory(p)}
+                          />
+                        );
+                      case 'conditions':
+                        return bundle ? <Conditions bundle={bundle} /> : null;
+
+                      case 'allergies':
+                        return bundle ? <Allergies bundle={bundle} /> : null;
+
+                      case 'immunizations':
+                        return bundle ? <Immunizations bundle={bundle} /> : null;
+
+                      case 'medications':
+                        return (
+                          <>
+                            {!canListMedicationRequest ? (
+                              <>
+                                <Box sx={{ mb: 2 }}>
+                                  <Alert severity="warning">
+                                    Access Restricted: You don’t have permission to view {resourceDisplayName['Medications']}.
+                                  </Alert>
+                                </Box>
+
+                                <Box
+                                  sx={{
+                                    py: 2,
+                                    px: 2,
+                                    border: 1,
+                                    borderColor: 'divider',
+                                    borderRadius: 3,
+                                    bgcolor: 'background.paper',
+                                    minHeight: '40vh',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                  }}
+                                >
+                                  <Typography color="text.secondary">
+                                    No {resourceDisplayName['Medications']} to show.
+                                  </Typography>
+                                </Box>
+                              </>
+                            ) : (
+                              <>{bundle ? <Medications bundle={bundle} /> : null}</>
+                            )}
+                          </>
+                        );
+
+                      case "activities":
+                        return (
+                          <PatientEventType
+                            patientId={patientDBId}
+                            data={{
+                              currentMonth: eventTypesCurrentMonth,
+                              previousMonths: eventTypesPreviousMonths,
+                            }}
+                            loading={eventTypesLoading}
+                            error={eventTypesError}
+                            onRetry={() => void fetchEventTypes()}
+                          />
+                        );
+                      // return <PatientEvents patientId={patientDBId} />
+
+                      case 'reports':
+                        return bundle ? <DiagnosticReport bundle={bundle} /> : null;
+
+                      case 'documents':
+                        return bundle ? <PatientDocuments bundle={bundle} /> : null;
+
+                      case 'adtRecords':
+                        return (
+                          <ADTRecords
+                            response={{
+                              data: adtRecords,
+                              meta: {
+                                totalItems: adtTotalItems,
+                                pageIndex: adtPage,
+                                totalPages: adtTotalPages,
+                              },
+                            }}
+                            onPageChange={(page) => {
+                              setAdtPage(page);
+                              fetchADT(page);
+                            }}
+                          />
+                        );
+
+                      case 'nutrition':
+                        return (
+                          <Box>
+                            <Box>
+                              <Tabs
+                                value={ordersSubTab}
+                                onChange={(_, val) => setOrdersSubTab(val)}
+                                variant="scrollable"
+                                TabIndicatorProps={{
+                                  sx: {
+                                    top: 0,
+                                    bottom: 'unset',
+                                    height: 2,
+                                    bgcolor: '#1976d2',
+                                    borderTopLeftRadius: 2,
+                                    borderTopRightRadius: 2,
+                                  },
+                                }}
+                                sx={{
+                                  px: 1,
+                                  minHeight: 'auto',
+                                  '& .MuiTab-root': {
+                                    textTransform: 'none',
+                                    minHeight: 'auto',
+                                    px: 2,
+                                    py: 1.2,
+                                    mx: 0.5,
+                                    fontSize: 13,
+                                    fontWeight: 500,
+                                    color: '#555',
+                                    '& svg': { fontSize: 18, mr: 1, color: '#888' },
+                                  },
+                                  '& .Mui-selected': {
+                                    backgroundColor: '#e3f2fd',
+                                    color: '#1976d2',
+                                    '& svg': { color: '#1976d2' },
+                                  },
+                                }}
+                              >
+                                <Tab
+                                  label={
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                      <RestaurantIcon />
+                                      <Typography variant="body2">Nutrition Orders</Typography>
+                                    </Stack>
+                                  }
+                                />
+                                <Tab
+                                  label={
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                      <Pill size={16} strokeWidth={3} />
+                                      <Typography variant="body2">Supplement Orders</Typography>
+                                    </Stack>
+                                  }
+                                />
+                              </Tabs>
+                              <Divider sx={{ mt: 0, mb: 4 }} />
+                            </Box>
+
+                            {ordersSubTab === 0 ? (
+                              <Nutrition patientId={patinentId} refreshToken={nutritionRefreshToken} />
+                            ) : (
+                              <SupplementOrders patientId={patinentId} refreshToken={nutritionRefreshToken} />
+                            )}
+                          </Box>
+                        );
+
+                      case 'careprofile':
+                        return <Careprofile response={bundle} />;
+
+                      case "alerts":
+                        return (
+                          <PatientAlerts
+                            patientId={patientDBId}
+                            patientName={name}
+                            items={alertsItems}
+                            hasMore={alertsHasMore}
+                            counts={alertsCounts}
+                            filter={alertsFilter}
+                            loading={alertsLoading}
+                            loadingMore={alertsLoadingMore}
+                            error={alertsError}
+                            onFilterChange={(v) => {
+                              setAlertsFilter(v);
+                              refreshAlerts(v);
+                            }}
+                            onLoadMore={() => {
+                              if (alertsLoading || alertsLoadingMore || !alertsHasMore) return;
+                              void fetchPatientAlerts(alertsPageIndex + 1, "append");
+                            }}
+                            onRetry={() => refreshAlerts()}
+                          />
+                        );
+
+                      case 'pccCarePlan': {
+                        const careplanBlock = tabData?.pccCarePlan?.careplan;
+                        const kardexBlock = tabData?.pccCarePlan?.kardex;
+
+                        const isCareplan = pccSubTab === 0;
+                        const activeLoading = isCareplan ? loadingTabs[PCC_CAREPLAN_KEY] : loadingTabs[PCC_KARDEX_KEY];
+                        const activeError = isCareplan ? errorTabs[PCC_CAREPLAN_KEY] : errorTabs[PCC_KARDEX_KEY];
+
+                        return (
+                          <Box>
+                            <Tabs
+                              value={pccSubTab}
+                              onChange={(_, val) => {
+                                setPccSubTab(val);
+
+                                if (val === 1 && !tabData?.pccCarePlan?.kardex && !loadingTabs[PCC_KARDEX_KEY]) {
+                                  void fetchPccCareplanKardex(1);
+                                }
+                                if (val === 0 && !tabData?.pccCarePlan?.careplan && !loadingTabs[PCC_CAREPLAN_KEY]) {
+                                  void fetchPccCareplan(1);
+                                }
+                              }}
+                              variant="scrollable"
+                              TabIndicatorProps={{
+                                sx: {
+                                  top: 0,
+                                  bottom: 'unset',
+                                  height: 2,
+                                  bgcolor: '#1976d2',
+                                  borderTopLeftRadius: 2,
+                                  borderTopRightRadius: 2,
+                                },
+                              }}
+                              sx={{
+                                px: 1,
+                                minHeight: 'auto',
+                                '& .MuiTab-root': {
+                                  textTransform: 'none',
+                                  minHeight: 'auto',
+                                  px: 2,
+                                  py: 1.2,
+                                  mx: 0.5,
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  color: '#555',
+                                },
+                                '& .Mui-selected': {
+                                  backgroundColor: '#e3f2fd',
+                                  color: '#1976d2',
+                                },
+                              }}
+                            >
+                              <Tab
+                                label={
+                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                    <LocalHospital />
+                                    <Typography variant="body2">Care plan</Typography>
+                                  </Stack>
+                                }
+                              />
+                              <Tab
+                                label={
+                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                    <FormatListBulleted />
+                                    <Typography variant="body2">Care plan kardex</Typography>
+                                  </Stack>
+                                }
+                              />
+                            </Tabs>
+
+                            <Divider sx={{ mt: 0, mb: 2 }} />
+
+                            {activeLoading && renderSkeletonForTab('pccCarePlan')}
+
+                            {!activeLoading && !!activeError && (
+                              <Alert
+                                severity="error"
+                                action={
+                                  <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => {
+                                      if (isCareplan) void fetchPccCareplan(1);
+                                      else void fetchPccCareplanKardex(1);
+                                    }}
+                                  >
+                                    Retry
+                                  </Button>
+                                }
+                              >
+                                {activeError}
+                              </Alert>
+                            )}
+
+                            {!activeLoading && !activeError && (
+                              <>
+                                {isCareplan ? (
+                                  <PccCareplanRecords
+                                    response={careplanBlock}
+                                    onPageChange={(page) => void fetchPccCareplan(page)}
+                                  />
+                                ) : (
+                                  <CareplanKardexRecords
+                                    response={kardexBlock}
+                                    onPageChange={(page) => void fetchPccCareplanKardex(page)}
+                                  />
+                                )}
+                              </>
+                            )}
+                          </Box>
+                        );
+                      }
+
+                      case 'episodesOfCare':
+                        return (
+                          <EpisodeOfCareRecords
+                            response={bundle}
+                            onPageChange={(page) => void fetchCareEpisodeOfCare(page)}
+                          />
+                        );
+
+                      case 'incidents':
+                        return <IncidentList rows={incidentRows} />;
+
+                      case 'progressNotes':
+                        return (
+                          <ProgressNotes
+                            response={{
+                              data: progressRecords,
+                              meta: {
+                                totalItems: progressTotalItems,
+                                pageIndex: progressPage,
+                                totalPages: progressTotalPages,
+                              },
+                            }}
+                            onPageChange={(page) => {
+                              setProgressPage(page);
+                              fetchProgress(page);
+                            }}
+                            onDetailsError={handleProgressDetailsError}
+                            patientHealthLakeId={patientId}
+                            onRefresh={refreshProgressRecords}
+                          />
+                        );
+
+                      case 'contacts':
+                        return (
+                          <EmergencyContactsRecords
+                            response={{
+                              data: emergencyContacts,
+                              meta: {
+                                pageIndex: emergencyMeta.pageIndex,
+                                totalPages: emergencyMeta.totalPages,
+                                totalItems: emergencyMeta.totalItems,
+                              },
+                            }}
+                            onPageChange={(page) => void fetchEmergencyContanct(page)}
+                          />
+                        );
+
+                      case 'coverage':
+                        return <Coverage bundle={tabData.coverage} />;
+
+
+                      case 'adl': {
+                        const assessmentBundle = tabData?.adl?.assessment;
+                        const scoreBundle = tabData?.adl?.score;
+
+                        const isAssessment = adlSubTab === 0;
+                        const activeLoading = isAssessment ? loadingTabs[ADL_ASSESSMENT_KEY] : loadingTabs[ADL_SCORE_KEY];
+                        const activeError = isAssessment ? errorTabs[ADL_ASSESSMENT_KEY] : errorTabs[ADL_SCORE_KEY];
+
+                        return (
+                          <Box>
+                            <Tabs
+                              value={adlSubTab}
+                              onChange={(_, val) => {
+                                setAdlSubTab(val);
+
+                                if (val === 1 && !tabData?.adl?.score && !loadingTabs[ADL_SCORE_KEY]) {
+                                  void fetchAdlScore();
+                                }
+                                if (val === 0 && !tabData?.adl?.assessment && !loadingTabs[ADL_ASSESSMENT_KEY]) {
+                                  void fetchAdlAssessment();
+                                }
+                              }}
+                              variant="scrollable"
+                              TabIndicatorProps={{
+                                sx: {
+                                  top: 0,
+                                  bottom: 'unset',
+                                  height: 2,
+                                  bgcolor: '#1976d2',
+                                  borderTopLeftRadius: 2,
+                                  borderTopRightRadius: 2,
+                                },
+                              }}
+                              sx={{
+                                px: 1,
+                                minHeight: 'auto',
+                                '& .MuiTab-root': {
+                                  textTransform: 'none',
+                                  minHeight: 'auto',
+                                  px: 2,
+                                  py: 1.2,
+                                  mx: 0.5,
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  color: '#555',
+                                },
+                                '& .Mui-selected': {
+                                  backgroundColor: '#e3f2fd',
+                                  color: '#1976d2',
+                                },
+                              }}
+                            >
+                              <Tab
+                                label={
+                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                    <ChecklistIcon />
+                                    <Typography variant="body2">ADL Assessment</Typography>
+                                  </Stack>
+                                }
+                              />
+                              <Tab
+                                label={
+                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                    <FormatListBulleted />
+                                    <Typography variant="body2">ADL Score</Typography>
+                                  </Stack>
+                                }
+                              />
+                            </Tabs>
+
+                            <Divider sx={{ mt: 0, mb: 2 }} />
+
+                            {activeLoading && renderSkeletonForTab('adl')}
+
+                            {!activeLoading && !!activeError && (
+                              <Alert
+                                severity="error"
+                                action={
+                                  <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => {
+                                      if (isAssessment) void fetchAdlAssessment();
+                                      else void fetchAdlScore();
+                                    }}
+                                  >
+                                    Retry
+                                  </Button>
+                                }
+                              >
+                                {activeError}
+                              </Alert>
+                            )}
+
+                            {!activeLoading && !activeError && (
+                              <>
+                                {isAssessment ? (
+                                  <AdlAssessment fhirResponse={assessmentBundle} />
+                                ) : (
+                                  <AdlScore fhirResponse={scoreBundle} />
+                                )}
+                              </>
+                            )}
+                          </Box>
+                        );
+                      }
+
+                      default:
+                        return null;
+                    }
+                  })()}
+                </Suspense>
+              </TabPanel>
+            ))}
+          </Box>
+        </>
+      </Grid>
+    </Grid>
+  );
+}
