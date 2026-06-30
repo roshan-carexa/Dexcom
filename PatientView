@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState, Suspense, lazy, type JSX, useCallback, useMemo } from 'react';
-import { IconButton, Skeleton, Tooltip } from '@mui/material';
+import { alpha, Card, Chip, IconButton, Skeleton, Tooltip } from '@mui/material';
 import {
   Avatar,
   Box, Button,
   Divider,
   Grid,
-  Stack, Tab, Tabs, Typography, CircularProgress, Alert
+  Stack, Tab, Tabs, Typography, CircularProgress, Alert,
+  List, ListItemButton, ListItemIcon, ListItemText,
 } from '@mui/material';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import {
   CallOutlined, EmailOutlined,
   // Language as LanguageIcon,
@@ -242,6 +244,20 @@ const detailTabs: TabDef[] = [
   { id: 'episodesOfCare', label: 'Episodes of Care', icon: <LocalHospital /> },
 ];
 
+// Groupings for the left-hand sidebar navigation. Every TabId that can appear
+// in `detailTabs` should be accounted for here so nothing drops out of the nav.
+type TabGroup = { label: string; tabs: TabId[] };
+
+const TAB_GROUPS: TabGroup[] = [
+  { label: 'Clinical overview', tabs: ['overview', 'summary', 'ai', 'vitals', 'carePlan'] },
+  {
+    label: 'Clinical records',
+    tabs: ['conditions', 'allergies', 'immunizations', 'medications', 'careprofile', 'careTeam', 'pccCarePlan', 'adl', 'episodesOfCare'],
+  },
+  { label: 'Care coordination', tabs: ['activities', 'alerts', 'contacts', 'coverage', 'incidents', 'adtRecords', 'devices'] },
+  { label: 'Documentation', tabs: ['transcript', 'reports', 'documents', 'progressNotes', 'nutrition'] },
+];
+
 
 
 const TAB_SKELETON_MAP: Record<TabId, JSX.Element> = {
@@ -424,18 +440,34 @@ const renderPhoneRow = (label: string, value?: string | null) => {
   if (!formatted) return null;
 
   return (
-    <Stack direction="column" spacing={0.2} alignItems="flex-start" mt={0.5}>
-      <Stack direction="row" spacing={0.5} alignItems={'center'}>
+    <Stack
+      sx={{
+        flexDirection: "column",
+        gap: 0.2,
+        alignItems: "flex-start",
+        mt: 0.5,
+      }}
+    >
+      <Stack
+        sx={{
+          flexDirection: "row",
+          gap: 0.5,
+          alignItems: "center",
+        }}
+      >
         <CallOutlined sx={{ fontSize: 15 }} />
-        <Typography variant="caption" color='text.secondary'>
-          {label} :
+
+        <Typography variant="caption" color="text.secondary">
+          {label}:
         </Typography>
-        <Typography variant="caption" fontSize={12} >
+
+        <Typography
+          variant="caption"
+          sx={{ fontSize: 12 }}
+        >
           {formatted}
         </Typography>
       </Stack>
-
-
     </Stack>
   );
 };
@@ -616,6 +648,21 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
 
     return detailTabs.filter(t => allow.has(t.id));
   }, [selectedFacility]);
+
+  // Groups the currently-visible tabs (respecting picklist config/permissions
+  // upstream) into the sidebar sections. Groups with no visible items are dropped.
+  const groupedVisibleTabs = React.useMemo(() => {
+    const byId = new Map(visibleTabs.map(t => [t.id, t] as const));
+
+    return TAB_GROUPS
+      .map(group => ({
+        label: group.label,
+        items: group.tabs
+          .map(id => byId.get(id))
+          .filter((t): t is TabDef => !!t),
+      }))
+      .filter(group => group.items.length > 0);
+  }, [visibleTabs]);
 
   useEffect(() => {
     setSelectedTabId(defaultTab);
@@ -2487,458 +2534,265 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
     target: window
   });
 
-
-
   const formattedPhone = formatPhone(phone);
   return (
-    <Grid container spacing={2} sx={{ flex: 1, overflow: 'hidden' }}>
-      <Grid size={{ xs: 12, lg: 3 }}>
-        <Box
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, lg: 2 }}>
+        <Card
+          variant="outlined"
           sx={{
-            border: 1,
-            borderColor: 'divider',
-            p: 2,
-            overflowY: 'auto',
-            borderRadius: 5,
-            pt: 3,
-            height: '100%',
+            borderRadius: 2,
+            borderColor: "divider",
+            overflow: "hidden",
+            position: { lg: "sticky" },
+            top: { lg: 16 },
           }}
         >
-          {/* <Box sx={{ display: 'flex', width: '100%', justifyContent: 'flex-end' }}>
-            <IconButton
-              aria-label="More actions"
-              onClick={handleMenuOpen}
-            >
-              <MoreVertIcon />
-            </IconButton>
-          </Box> */}
-          {/* Menu */}
+          <List sx={{ py: 1 }}>
+            {groupedVisibleTabs.map((group, gi) => (
+              <Box key={group.label}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    px: 2,
+                    pt: gi === 0 ? 1.5 : 2.5,
+                    pb: 0.5,
+                    color: "text.secondary",
+                    fontWeight: 600,
+                  }}
+                >
+                  {group.label}
+                </Typography>
 
-          <Stack spacing={1} alignItems="center">
-            <Avatar
-              alt={name}
-              src={!avatarFailed ? patient.photo?.dataUrl : undefined}
-              imgProps={{
-                onError: () => setAvatarFailed(true),
-                referrerPolicy: 'no-referrer',
-              }}
-              sx={{ width: 82, height: 82, fontSize: 34, bgcolor: 'rgb(0, 114, 214)' }}
-            >
-              {initials || '?'}
-            </Avatar>
-
-            <Typography variant="h6">
-              {name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" >
-              {age}Y, {gender.charAt(0).toUpperCase()}{gender.slice(1, gender.length)} | DOB: {dayjs(dob).format('MM/DD/YYYY')}
-            </Typography>
-
-            {patient.billingPractioner?.fullName && (
-              <Stack direction="row" spacing={1} alignItems="center" pb={1}>
-                <Typography variant="body2" color="text.secondary">Billing Practioner:</Typography>
-                <Typography variant="body2" >{patient.billingPractioner?.fullName}</Typography>
-              </Stack>
-            )}
-            {(() => {
-              const normalizePart = (value?: string | null) => {
-                if (!value) return null;
-                const trimmed = value.trim();
-                if (!trimmed) return null;
-                if (trimmed.toUpperCase() === 'N/A') return null;
-                return trimmed;
-              };
-              const parts = [
-                normalizePart(floor),
-                normalizePart(unit),
-                normalizePart(room),
-                normalizePart(bed),
-              ].filter(Boolean) as string[];
-
-              if (parts.length === 0) return null;
-
-              return (
-                <Stack direction="row" spacing={1} alignItems="center" >
-                  {/* <Typography variant="body2" color="text.secondary">
-                    Location:
-                  </Typography> */}
-
-                  <Tooltip
-                    title="Location is shown in order: Floor Unit Room Bed"
-                    arrow
-                  >
-                    <IconButton
-                      size="small"
-                      sx={{ ml: 0.5, p: 0.25 }}
-                      aria-label="Location info"
+                {group.items.map((tab) => {
+                  const selected = selectedTabId === tab.id;
+                  return (
+                    <ListItemButton
+                      key={tab.id}
+                      selected={selected}
+                      disabled={!!loadingTabs[tab.id]}
+                      onClick={() => {
+                        setSelectedTabId(tab.id);
+                        handleTabClick(tab.id);
+                      }}
+                      sx={{
+                        mx: 1,
+                        my: 0.2,
+                        px: 1.5,
+                        py: 0.9,
+                        borderRadius: 2,
+                        borderLeft: "3px solid transparent",
+                        '&.Mui-selected': {
+                          bgcolor: '#e3f2fd',
+                          color: 'primary.main',
+                          borderLeft: '3px solid primary.main',
+                          '& .MuiListItemIcon-root': { color: 'primary.main' },
+                        },
+                        '&.Mui-selected:hover': { bgcolor: '#e3f2fd' },
+                      }}
                     >
-                      <CorporateFare fontSize='small' />
-                    </IconButton>
-                  </Tooltip>
-                  <Typography variant="body2" color="text.secondary" pr={2}>{parts.join(' ')}</Typography>
-                </Stack>
-              );
-            })()}
-          </Stack>
-          <Stack direction="column" px={2} mt={2}>
-            <Stack direction="row" spacing={1} alignItems="center" pb={1}>
-              <Typography variant="body2" color="text.secondary">MRN:</Typography>
-              <Typography variant="body2" >{mrn}</Typography>
-            </Stack>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', mb: 1, gap: 1, flexDirection: 'column' }} >
-              {acuity.code && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
-                  <Typography variant="body2" color="text.secondary">Acuity:</Typography>
-                  <StatusChip
-                    label={acuityName(acuity.code)}
-                    variant={acuityVariantMap[(acuity.code as 'RED' | 'YELLOW' | 'GREEN')]}
-                  />
-                </Box>
-              )}
+                      <ListItemIcon sx={{ minWidth: 32, color: selected ? 'primary.main' : '#888', '& svg': { fontSize: 18 } }}>
+                        {tab.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={tab.label}
+                        slotProps={{
+                          primary: {
+                            sx: {
+                              fontSize: 13.5,
+                              fontWeight: 500,
+                            },
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </Box>
+            ))}
+          </List>
+        </Card>
+      </Grid>
 
-              {fallPrediction &&
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
-                  <Typography variant="body2" color="text.secondary">Fall Prediction:</Typography>
-                  <Box  >
+
+      <Grid size={{ xs: 12, lg: 10 }}>
+        <Stack>
+          {/* PROFILE */}
+          <Card
+            variant="outlined"
+            sx={(t) => ({
+              position: 'sticky',
+              top: 1,
+              borderRadius: 3,
+              zIndex: (theme) => theme.zIndex.appBar - 1,
+              px: 3,
+              py: 2,
+              mb: 2,
+              borderColor: "divider",
+              bgcolor: '#FBFCFE',
+            })}
+          >
+            <Stack
+              sx={{
+                flexDirection: { xs: "column", md: "row" },
+                gap: 2,
+                alignItems: { xs: "flex-start", md: "center" },
+              }}
+            >
+              <Avatar
+                alt={name}
+                src={!avatarFailed ? patient.photo?.dataUrl : undefined}
+                slotProps={{
+                  img: {
+                    onError: () => setAvatarFailed(true),
+                    referrerPolicy: "no-referrer",
+                  },
+                }}
+                sx={{
+                  width: 52,
+                  height: 52,
+                  bgcolor: "primary.main",
+                  fontWeight: 700,
+                  fontSize: 18,
+                  flexShrink: 0,
+                }}
+              >
+                {initials || "?"}
+              </Avatar>
+
+              {/* Patient Details */}
+              <Box sx={{ flex: 0.5, minWidth: 0 }}>
+
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontSize: 19,
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    letterSpacing: 0.3,
+                  }}
+                >
+
+                  {name}
+                </Typography>
+
+                <Typography
+                  variant="body1"
+                  sx={{ color: "text.secondary" }}
+                >
+                  {age}Y, {gender}
+
+                  {room && ` • Room ${room}`}
+                </Typography>
+
+
+              </Box>
+              <Box sx={{ flex: 0.5 }}>
+                <Typography
+                  variant="body1"
+                  sx={{ color: "text.primary" }}
+                >
+                  MRN : {mrn}
+                </Typography>
+
+                {patient.billingPractioner?.fullName && (
+
+                  <Typography
+                    variant="body1"
+                    sx={{ color: "text.secondary", mt: .25 }}
+                  >
+                    Billing Practioner: {patient.billingPractioner.fullName}
+                  </Typography>
+
+                )}
+              </Box>
+
+              {/* Chips */}
+
+              <Stack
+                sx={{ gap: 2, flexWrap: 'wrap', display:'flex', flexDirection:'row', alignItems: 'flex-end', justifyContent: 'flex-end' }}
+              >
+                {/* Acuity */}
+                {acuity.code && (
+                  <Stack spacing={0.5}>
+                    <Typography variant="body1" sx={{color:"text.secondary", pl:0.8}}>
+                      Acuity
+                    </Typography>
+                    <StatusChip
+                      label={acuityName(acuity.code)}
+                      variant={acuityVariantMap[acuity.code as "RED" | "YELLOW" | "GREEN"]}
+                    />
+                  </Stack>
+                )}
+
+                {/* Fall Risk */}
+                {fallPrediction && (
+                  <Stack spacing={0.5}>
+                    <Typography variant="body1" sx={{color:"text.secondary"}}>
+                      Fall Risk
+                    </Typography>
                     <StatusChip
                       label={fallPrediction}
                       variant={fallPredictionVariantMap[fallPrediction]}
                     />
-                  </Box>
-                </Box>
-              }
+                  </Stack>
+                )}
 
-              {patient.enrolledIn &&
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} >
-                  <Typography variant="body2" color="text.secondary">Care Program:</Typography>
-                  <Box  >
+                {/* Care Program */}
+                {patient.enrolledIn && (
+                  <Stack spacing={0.5}>
+                    <Typography variant="body1" sx={{color:"text.secondary"}}>
+                      Care Program
+                    </Typography>
                     <StatusChip
                       label={patient.enrolledIn}
-                      variant={'default'}
                     />
-                  </Box>
-                </Box>
-              }
-            </Box>
-          </Stack>
+                  </Stack>
+                )}
 
-          <Divider sx={{ my: 2 }} />
-
-          <Stack spacing={2} ml={2} my={3}>
-            {/* <Stack direction="row" spacing={2.3} alignItems="center">
-              <LanguageIcon fontSize="small" />
-              <Typography>{languages}</Typography>
-            </Stack> */}
-            <Stack direction="row" spacing={1.9} alignItems="center"
-              sx={{
-                overflowWrap: 'anywhere',
-                whiteSpace: 'normal',
-              }}>
-              <EmailOutlined />
-              <Typography>{email}</Typography>
-            </Stack>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <CallOutlined />
-              <Typography>{formattedPhone ? formattedPhone : 'N/A'}</Typography>
-            </Stack>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <LocationOnOutlined />
-              <Typography>{address}</Typography>
-            </Stack>
-          </Stack>
-          <Divider sx={{ my: 2 }} />
-          {picklist?.tenant === "clinic" ? (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" fontWeight={'bold'}>Patient Documents</Typography>
-              {/* <Button variant='text' sx={{ textTransform: 'none' }} onClick={() => setSelectedTabId('contacts')}>
-                  View All
-                </Button> */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '20vh' }}>
-                <Typography variant='body2' fontWeight={550} color='text.secondary'>
-                  No Documents Found
-                </Typography>
-              </Box >
-            </Box>
-            // <PatientPdfListCard />
-          ) : (
-            <Box >
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                // px={2}
-                alignItems="center"
-              >
-                <Typography variant="subtitle1" fontWeight={'bold'}>Patient contacts</Typography>
-                <Button variant='text' sx={{ textTransform: 'none' }} onClick={() => setSelectedTabId('contacts')}>
-                  View All
-                </Button>
-              </Stack>
-
-              {/* Loading state */}
-              {loadingTabs['contacts'] && (
-                <Box
-                  sx={{
-                    px: 2,
-                    py: 3,
-                  }}
-                >
-                  <Skeleton variant="text" width={'100%'} height={200} />
-                  <Skeleton variant="text" width={'100%'} height={200} />
-                </Box>
-              )}
-
-              {/* Error state */}
-              {!loadingTabs['contacts'] && errorTabs['contacts'] && (
-                <Box sx={{ px: 2, pt: 2 }}>
-                  <Alert
-                    severity="error"
-                    action={
-                      <Button
-                        color="inherit"
-                        size="small"
-                        onClick={() => fetchEmergencyContanct(1)}
-                      >
-                        Retry
-                      </Button>
-                    }
-                  >
-                    {errorTabs['contacts']}
-                  </Alert>
-                </Box>
-              )}
-
-              {/* Empty state */}
-              {!loadingTabs['contacts'] && !errorTabs['contacts'] && emergencyContacts.length === 0 && (
-                <Typography
-                  variant="body1"
-                  fontWeight="bold"
-                  color="rgba(142, 142, 142, 0.62)"
-                  textAlign="center"
-                  minHeight="5vh"
-                  mt={5}
-                >
-                  No emergency contact found
-                </Typography>
-              )}
-
-              {/* Contact list */}
-              {!loadingTabs['contacts'] && !errorTabs['contacts'] && emergencyContacts.length > 0 && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mt: 1 }}>
-                  {emergencyContacts.slice(0, 2).map(contact => {
-                    const fullName = [contact.firstName, contact.lastName]
-                      .filter(Boolean)
-                      .join(' ') || 'Unknown';
-                    const typeLines = formatContactTypes(contact.types);
-
-                    return (
-                      <Box
-                        key={contact.id}
-                        sx={{
-                          p: 2,
-                          mt: 1,
-                          mb: 1,
-                          // bgcolor: 'rgba(244, 244, 244, 0.63)',
-                          borderRadius: 2,
-                          border: 0.5,
-                          borderColor: 'divider'
-
-                        }}
-                      >
-                        <Stack spacing={0.5}>
-                          <Stack spacing={0.5} direction={'row'} alignItems={'center'}>
-                            <Person sx={{ fontSize: 15 }} />
-                            <Typography variant="body2" fontWeight={600}>
-                              {fullName}
-                            </Typography>
-                            {contact.relationship && (
-                              <Typography variant="caption" color="text.secondary">
-                                {`(${contact.relationship})`}
-                              </Typography>
-                            )}
-                          </Stack>
-                          {/* <Divider /> */}
-
-                          {typeLines.length > 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2.2 }}>
-                              {typeLines.join(' • ')}
-                            </Typography>
-                          )}
-                          <Box>
-                            {renderPhoneRow('Home', contact.homePhone)}
-                            {renderPhoneRow('Cell', contact.cellPhone)}
-                            {renderPhoneRow('Office', contact.officePhone)}
-
-                            {contact.email && (
-                              <Stack direction="row" spacing={0.5} alignItems={{ xs: 'flex-start', xl: 'center' }}>
-                                <EmailOutlined sx={{ fontSize: 15 }} />
-                                <Typography variant="caption" color='text.secondary'>Email: </Typography>
-                                <Typography variant="body1"
-                                  sx={{
-                                    overflowWrap: 'anywhere',
-                                    whiteSpace: 'normal',
-                                  }}>
-                                  {contact.email}
-                                </Typography>
-                              </Stack>
-                            )}
-                          </Box>
-
-                          {(() => {
-                            const addressText = buildContactAddress(contact);
-                            if (!addressText) return null;
-
-                            return (
-                              <Stack
-                                direction="row"
-                                spacing={1}
-                                alignItems="flex-start"
-                                sx={{
-                                  overflowWrap: 'anywhere',
-                                  whiteSpace: 'normal',
-                                }}
-                              >
-                                <LocationOnOutlined sx={{ fontSize: 15 }} />
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    whiteSpace: 'pre-line',
-                                  }}
-                                >
-                                  {addressText}
-                                </Typography>
-                              </Stack>
-                            );
-                          })()}
-
-                        </Stack>
-
-                        {/* <Divider sx={{ py: 1 }} /> */}
-                      </Box>
-
-                    );
-                  })}
-                </Box>
-              )}
-            </Box>
-          )}
-        </Box>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 9 }}>
-
-        <>
-          <Box
-            ref={activityContainerRef}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-              width: "100%",
-            }}
-          >
-            {/* LEFT AREA (takes remaining space) */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              {picklist?.tenant === "clinic" && unresolvedAlertsCount > 0 && (
-                <Alert
-                  severity="error"
-                  sx={{ borderRadius: 2.4 }}
-                  action={
+                {/* Call */}
+                {picklist?.tenant === "clinic" && (
+                  <Stack spacing={0.5}>
                     <Button
+                      variant="contained"
                       size="small"
-                      variant="outlined"
+                      startIcon={<CallIcon sx={{ fontSize: 16 }} />}
+                      onClick={() =>
+                        openCall({
+                          toNumberE164: dialTo,
+                          patientId: patientDBId,
+                          displayNumber: formattedPhone ?? phone,
+                          selectedFacilityId,
+                          title: name,
+                        })
+                      }
+                      disabled={!dialTo}
                       sx={{
+                        borderRadius: 2,
                         textTransform: "none",
-                        fontWeight: 500,
-                        color: "error.main",
-                        borderColor: "error.main",
-                        mx: 2,
-                        bgcolor: "#ffffff",
-                      }}
-                      onClick={() => {
-                        setSelectedTabId("alerts");
-                        handleTabClick("alerts");
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      View alerts
+                      {`Call ${(patient?.firstName ?? "").trim()} ${(patient?.lastName ?? "").trim()}`.trim()}
                     </Button>
-                  }
-                >
-                  {name} has <b>{unresolvedAlertsCount}</b> unresolved alerts. Please click on view alerts to review them.
-                </Alert>
-              )}
-            </Box>
+                  </Stack>
+                )}
+              </Stack>
 
-            {/* RIGHT AREA (always pinned right) */}
-            {picklist?.tenant === "clinic" && (
-              <Box sx={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", px: 3, gap: 2 }}>
+            </Stack>
+          </Card>
 
-                <Button
-                  variant="contained"
-                  startIcon={<CallIcon />}
-                  onClick={() =>
-                    openCall({
-                      toNumberE164: dialTo,
-                      patientId: patientDBId,
-                      displayNumber: formattedPhone ?? phone,
-                      selectedFacilityId,
-                      title: name,
-                    })
-                  }
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: "none",
-                    whiteSpace: "nowrap",
-                    minWidth: "max-content",
-                    py: 1.2,
-                  }}
-                  disabled={!dialTo}
-                >
-                  {`Call ${(patient?.firstName ?? "").trim()} ${(patient?.lastName ?? "").trim()}`.trim()}
-                </Button>
-              </Box>
-
-            )}
-          </Box>
-
-          <Box sx={{ pt: 2 }}>
-            {analysisError && (
-              <Box sx={{ mx: 1, mb: 1 }}>
-                <Alert severity="warning">{analysisError}</Alert>
-              </Box>
-            )}
-
-
-            <Tabs
-              value={selectedTabId}
-              onChange={handleDetailTab}
-              variant="scrollable"
-              TabIndicatorProps={{
-                sx: { top: 0, bottom: 'unset', height: 2, bgcolor: '#1976d2', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
-              }}
-              sx={{
-                px: 1,
-                '& .MuiTab-root': {
-                  textTransform: 'none', minHeight: 'auto', px: 2, py: 1.2, mx: 0.5,
-                  fontSize: 13, fontWeight: 500, color: '#555',
-                  '& svg': { fontSize: 18, mr: 1, color: '#888' },
-                },
-                '& .Mui-selected': {
-                  backgroundColor: '#e3f2fd', color: '#1976d2',
-                  '& svg': { color: '#1976d2' },
-                },
-              }}
-            >
-              {visibleTabs.map((tab, _idx) => (
-                <Tab
-                  key={tab.id}
-                  value={tab.id}
-                  label={<Stack direction="row" alignItems="center" spacing={1}>{tab.icon}{tab.label}</Stack>}
-                  onClick={() => handleTabClick(tab.id)}
-                  disabled={!!loadingTabs[tab.id]}
-                />
-              ))}
-            </Tabs>
-            <Divider sx={{ my: -1.4, mb: 1, mx: { xs: 3, lg: 1 } }} />
-
+          {/* Content */}
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 3,
+              borderColor: "divider",
+              p: 0,
+              minHeight: "70vh",
+            }}
+          >
             {visibleTabs.map((tab) => (
               <TabPanel key={tab.id} value={selectedTabId} tabId={tab.id}>
                 <Suspense
@@ -2982,13 +2836,26 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                       if (vitalsError) return <Alert severity="error">{vitalsError}</Alert>;
 
                       return (
-                        <Overview
-                          vitalsData={vitalsData}
-                          compliance={compliance}
-                          composition48h={composition48h}
-                          canListObservation={canListObservation}
-                          setDetailTab={setSelectedTabId}
-                        />
+                        <Box>
+                          <Stack sx={{ direction: "row", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>Overview</Typography>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<FileDownloadOutlinedIcon sx={{ fontSize: 16 }} />}
+                              sx={{ textTransform: 'none', borderRadius: 2, borderColor: 'divider', color: 'text.primary' }}
+                            >
+                              Export
+                            </Button>
+                          </Stack>
+                          <Overview
+                            vitalsData={vitalsData}
+                            compliance={compliance}
+                            composition48h={composition48h}
+                            canListObservation={canListObservation}
+                            setDetailTab={setSelectedTabId}
+                          />
+                        </Box>
                       );
                     }
 
@@ -3074,12 +2941,14 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                       if (carePlanFlow.state === 'waiting' || carePlanFlow.state === 'fetching') {
                         return (
                           <Box
-                            display="flex"
-                            flexDirection="column"
-                            alignItems="center"
-                            justifyContent="center"
-                            minHeight="50vh"
-                            gap={2}
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              minHeight: "50vh",
+                              gap: 2
+                            }}
                           >
                             <CircularProgress />
                             <Typography>{carePlanFlow.message}</Typography>
@@ -3289,7 +3158,7 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                           />
                         );
 
-                      case 'nutrition':
+                      case "nutrition":
                         return (
                           <Box>
                             <Box>
@@ -3297,65 +3166,84 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                                 value={ordersSubTab}
                                 onChange={(_, val) => setOrdersSubTab(val)}
                                 variant="scrollable"
-                                TabIndicatorProps={{
-                                  sx: {
-                                    top: 0,
-                                    bottom: 'unset',
-                                    height: 2,
-                                    bgcolor: '#1976d2',
-                                    borderTopLeftRadius: 2,
-                                    borderTopRightRadius: 2,
+                                slotProps={{
+                                  indicator: {
+                                    sx: {
+                                      top: 0,
+                                      bottom: "unset",
+                                      height: 2,
+                                      bgcolor: "primary.main",
+                                      borderTopLeftRadius: 2,
+                                      borderTopRightRadius: 2,
+                                    },
                                   },
                                 }}
                                 sx={{
                                   px: 1,
-                                  minHeight: 'auto',
-                                  '& .MuiTab-root': {
-                                    textTransform: 'none',
-                                    minHeight: 'auto',
+                                  minHeight: "auto",
+                                  "& .MuiTab-root": {
+                                    textTransform: "none",
+                                    minHeight: "auto",
                                     px: 2,
                                     py: 1.2,
                                     mx: 0.5,
                                     fontSize: 13,
                                     fontWeight: 500,
-                                    color: '#555',
-                                    '& svg': { fontSize: 18, mr: 1, color: '#888' },
+                                    color: "#555",
+                                    "& svg": {
+                                      fontSize: 18,
+                                      mr: 1,
+                                      color: "#888",
+                                    },
                                   },
-                                  '& .Mui-selected': {
-                                    backgroundColor: '#e3f2fd',
-                                    color: '#1976d2',
-                                    '& svg': { color: '#1976d2' },
+                                  "& .Mui-selected": {
+                                    bgcolor: "#e3f2fd",
+                                    color: "primary.main",
+                                    "& svg": {
+                                      color: "primary.main",
+                                    },
                                   },
                                 }}
                               >
                                 <Tab
                                   label={
-                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Stack sx={{ direction: "row", alignItems: "center", }} spacing={1}>
                                       <RestaurantIcon />
-                                      <Typography variant="body2">Nutrition Orders</Typography>
+                                      <Typography variant="body2">
+                                        Nutrition Orders
+                                      </Typography>
                                     </Stack>
                                   }
                                 />
+
                                 <Tab
                                   label={
-                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                    <Stack sx={{ direction: "row", alignItems: "center" }} spacing={1}>
                                       <Pill size={16} strokeWidth={3} />
-                                      <Typography variant="body2">Supplement Orders</Typography>
+                                      <Typography variant="body2">
+                                        Supplement Orders
+                                      </Typography>
                                     </Stack>
                                   }
                                 />
                               </Tabs>
+
                               <Divider sx={{ mt: 0, mb: 4 }} />
                             </Box>
 
                             {ordersSubTab === 0 ? (
-                              <Nutrition patientId={patinentId} refreshToken={nutritionRefreshToken} />
+                              <Nutrition
+                                patientId={patinentId}
+                                refreshToken={nutritionRefreshToken}
+                              />
                             ) : (
-                              <SupplementOrders patientId={patinentId} refreshToken={nutritionRefreshToken} />
+                              <SupplementOrders
+                                patientId={patinentId}
+                                refreshToken={nutritionRefreshToken}
+                              />
                             )}
                           </Box>
                         );
-
                       case 'careprofile':
                         return <Careprofile response={bundle} />;
 
@@ -3398,56 +3286,71 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                               onChange={(_, val) => {
                                 setPccSubTab(val);
 
-                                if (val === 1 && !tabData?.pccCarePlan?.kardex && !loadingTabs[PCC_KARDEX_KEY]) {
+                                if (
+                                  val === 1 &&
+                                  !tabData?.pccCarePlan?.kardex &&
+                                  !loadingTabs[PCC_KARDEX_KEY]
+                                ) {
                                   void fetchPccCareplanKardex(1);
                                 }
-                                if (val === 0 && !tabData?.pccCarePlan?.careplan && !loadingTabs[PCC_CAREPLAN_KEY]) {
+                                if (
+                                  val === 0 &&
+                                  !tabData?.pccCarePlan?.careplan &&
+                                  !loadingTabs[PCC_CAREPLAN_KEY]
+                                ) {
                                   void fetchPccCareplan(1);
                                 }
                               }}
                               variant="scrollable"
-                              TabIndicatorProps={{
-                                sx: {
-                                  top: 0,
-                                  bottom: 'unset',
-                                  height: 2,
-                                  bgcolor: '#1976d2',
-                                  borderTopLeftRadius: 2,
-                                  borderTopRightRadius: 2,
+                              slotProps={{
+                                indicator: {
+                                  sx: {
+                                    top: 0,
+                                    bottom: "unset",
+                                    height: 2,
+                                    bgcolor: "primary.main",
+                                    borderTopLeftRadius: 2,
+                                    borderTopRightRadius: 2,
+                                  },
                                 },
                               }}
                               sx={{
                                 px: 1,
-                                minHeight: 'auto',
-                                '& .MuiTab-root': {
-                                  textTransform: 'none',
-                                  minHeight: 'auto',
+                                minHeight: "auto",
+                                "& .MuiTab-root": {
+                                  textTransform: "none",
+                                  minHeight: "auto",
                                   px: 2,
                                   py: 1.2,
                                   mx: 0.5,
                                   fontSize: 13,
                                   fontWeight: 500,
-                                  color: '#555',
+                                  color: "#555",
                                 },
-                                '& .Mui-selected': {
-                                  backgroundColor: '#e3f2fd',
-                                  color: '#1976d2',
+                                "& .Mui-selected": {
+                                  bgcolor: "#e3f2fd",
+                                  color: "primary.main",
                                 },
                               }}
                             >
                               <Tab
                                 label={
-                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Stack sx={{ direction: "row", alignItems: "center", }} spacing={1}>
                                     <LocalHospital />
-                                    <Typography variant="body2">Care plan</Typography>
+                                    <Typography variant="body2">
+                                      Care plan
+                                    </Typography>
                                   </Stack>
                                 }
                               />
+
                               <Tab
                                 label={
-                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Stack sx={{ direction: "row", alignItems: "center", }} spacing={1}>
                                     <FormatListBulleted />
-                                    <Typography variant="body2">Care plan kardex</Typography>
+                                    <Typography variant="body2">
+                                      Care plan kardex
+                                    </Typography>
                                   </Stack>
                                 }
                               />
@@ -3455,7 +3358,7 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
 
                             <Divider sx={{ mt: 0, mb: 2 }} />
 
-                            {activeLoading && renderSkeletonForTab('pccCarePlan')}
+                            {activeLoading && renderSkeletonForTab("pccCarePlan")}
 
                             {!activeLoading && !!activeError && (
                               <Alert
@@ -3570,48 +3473,55 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                                 }
                               }}
                               variant="scrollable"
-                              TabIndicatorProps={{
-                                sx: {
-                                  top: 0,
-                                  bottom: 'unset',
-                                  height: 2,
-                                  bgcolor: '#1976d2',
-                                  borderTopLeftRadius: 2,
-                                  borderTopRightRadius: 2,
+                              slotProps={{
+                                indicator: {
+                                  sx: {
+                                    top: 0,
+                                    bottom: "unset",
+                                    height: 2,
+                                    bgcolor: "primary.main",
+                                    borderTopLeftRadius: 2,
+                                    borderTopRightRadius: 2,
+                                  },
                                 },
                               }}
                               sx={{
                                 px: 1,
-                                minHeight: 'auto',
-                                '& .MuiTab-root': {
-                                  textTransform: 'none',
-                                  minHeight: 'auto',
+                                minHeight: "auto",
+                                "& .MuiTab-root": {
+                                  textTransform: "none",
+                                  minHeight: "auto",
                                   px: 2,
                                   py: 1.2,
                                   mx: 0.5,
                                   fontSize: 13,
                                   fontWeight: 500,
-                                  color: '#555',
+                                  color: "#555",
                                 },
-                                '& .Mui-selected': {
-                                  backgroundColor: '#e3f2fd',
-                                  color: '#1976d2',
+                                "& .Mui-selected": {
+                                  bgcolor: "#e3f2fd",
+                                  color: "primary.main",
                                 },
                               }}
                             >
                               <Tab
                                 label={
-                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Stack sx={{ direction: "row", alignItems: "center", }} spacing={1}>
                                     <ChecklistIcon />
-                                    <Typography variant="body2">ADL Assessment</Typography>
+                                    <Typography variant="body2">
+                                      ADL Assessment
+                                    </Typography>
                                   </Stack>
                                 }
                               />
+
                               <Tab
                                 label={
-                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Stack sx={{ direction: "row", alignItems: "center", }} spacing={1}>
                                     <FormatListBulleted />
-                                    <Typography variant="body2">ADL Score</Typography>
+                                    <Typography variant="body2">
+                                      ADL Score
+                                    </Typography>
                                   </Stack>
                                 }
                               />
@@ -3661,9 +3571,48 @@ export default function PatientDetailedView({ patient, activityContext, onCloseP
                 </Suspense>
               </TabPanel>
             ))}
-          </Box>
-        </>
+          </Card>
+        </Stack>
       </Grid>
-    </Grid>
+
+      {/* Unresolved alerts / analysis errors banner - full width, above the nav + content */}
+      {
+        ((picklist?.tenant === "clinic" && unresolvedAlertsCount > 0) || analysisError) && (
+          <Grid size={12} ref={activityContainerRef}>
+            <Stack spacing={1}>
+              {picklist?.tenant === "clinic" && unresolvedAlertsCount > 0 && (
+                <Alert
+                  severity="error"
+                  sx={{ borderRadius: 2.4 }}
+                  action={
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 500,
+                        color: "error.main",
+                        borderColor: "error.main",
+                        mx: 2,
+                        bgcolor: "#ffffff",
+                      }}
+                      onClick={() => {
+                        setSelectedTabId("alerts");
+                        handleTabClick("alerts");
+                      }}
+                    >
+                      View alerts
+                    </Button>
+                  }
+                >
+                  {name} has <b>{unresolvedAlertsCount}</b> unresolved alerts. Please click on view alerts to review them.
+                </Alert>
+              )}
+              {analysisError && <Alert severity="warning">{analysisError}</Alert>}
+            </Stack>
+          </Grid>
+        )
+      }
+    </Grid >
   );
 }
